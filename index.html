@@ -31,23 +31,23 @@
   <script type="module" src="assets/js/molecule.js"></script>
 </head>
 <body>
+<div id="dt-root" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--paper, #F4F4F2); color: var(--ink, #17181A); -webkit-font-smoothing: antialiased;">
 
   <div id="progress" aria-hidden="true"></div>
 
   <div id="mol-layer" aria-hidden="true"></div>
   <div id="mol-hit" title="Drag to rotate"></div>
 
-  <nav id="nav" aria-label="Primary">
-    <a class="brand" href="#top">DT</a>
-    <ul>
-      <li><a href="#journey">JOURNEY</a></li>
-      <li><a href="#story">MISSION</a></li>
-      <li><a href="#research">RESEARCH</a></li>
-      <li><a href="#contact">CONTACT</a></li>
-    </ul>
+  <!-- nav -->
+  <nav style="position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; justify-content: space-between; align-items: center; padding: 22px clamp(24px, 5vw, 72px); mix-blend-mode: difference; color: #F4F4F2;">
+    <a href="#top" style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.02em;">DT</a>
+    <div id="nav-links" style="display: flex; gap: clamp(16px, 3vw, 36px); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.12em;">
+      <a href="#journey" style="font-family: Helvetica">JOURNEY</a>
+      <a href="#story" style="font-family: Helvetica">MISSION</a>
+      <a href="#research" style="font-family: Helvetica">RESEARCH</a>
+      <a href="#contact" style="font-family: Helvetica">CONTACT</a>
+    </div>
   </nav>
-
-  <main>
 
     <!-- Molecule intro (pinned stage) -->
     <section id="intro" aria-label="Carbon, captured and stored">
@@ -64,7 +64,7 @@
     <!-- Hero -->
     <section id="top">
       <div id="mol-dock" aria-hidden="true">
-        <span id="mol-dock-label">HOVER TO LOOK INSIDE</span>
+        <span id="mol-dock-label">CO₂ · STORED — HOVER TO LOOK INSIDE</span>
       </div>
 
       <div class="hero-inner">
@@ -74,177 +74,210 @@
           <span class="h1-grey reveal" data-reveal="up" data-reveal-delay="140" style="--d:140ms">YI JIN</span>
           <span class="reveal" data-reveal="up" data-reveal-delay="200" style="--d:200ms">TAN<span class="accent">.</span></span>
         </h1>
-        <div class="hero-foot reveal" data-reveal="up" data-reveal-delay="300" style="--d:300ms">
-          <p class="lede">Designing energy systems that let economies grow while minimizing environmental trade-offs.</p>
-          <div class="cta-row">
-            <a class="btn btn-primary" href="mailto:daryltyj@ou.edu">Email me</a>
-            <a class="btn btn-secondary" href="https://daryl10.com/cv/" target="_blank" rel="noopener">View CV</a>
+        <div data-reveal="up" data-reveal-delay="300" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px; border-top: 1px solid rgba(244,244,242,0.15); padding-top: 24px;">
+          <p style="margin: 0; max-width: 46ch; font-size: clamp(16px, 1.6vw, 20px); line-height: 1.5; color: rgba(244,244,242,0.82); text-wrap: pretty;">Designing energy systems that let economies grow while minimizing environmental trade-offs.</p>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: rgba(244,244,242,0.55); text-align: right; line-height: 1.8;">
+            <div style="font-family: Arial; color: #F4F4F2D1">UNIVERSITY OF OKLAHOMA</div>
+            <div style="font-family: Arial; color: #F4F4F2D1">UNITED WORLD COLLEGE DILIJAN '25</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Journey -->
-    <section id="journey" aria-labelledby="journey-title">
-      <div class="journey-inner">
-        <h2 id="journey-title" class="section-title reveal" data-reveal="up">The journey</h2>
+  <!-- ============ JOURNEY (chapter scroll) ============ -->
+  <section id="journey" data-screen-label="Journey" style="position: relative; background: #0D0E10; color: #F4F4F2; padding: clamp(96px, 14vh, 160px) clamp(24px, 5vw, 72px) clamp(48px, 8vh, 96px); box-sizing: border-box;">
+    <div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(90px, 15vh, 170px);" data-om-label="Content Journey">
 
-        <article id="jch0" class="chapter">
-          <div class="chapter-text">
-            <h3 class="chapter-title reveal" data-reveal="up">KUALA LUMPUR</h3>
-            <p class="reveal" data-reveal="up" data-reveal-delay="120" style="--d:120ms">Began competitive debate during the COVID lockdown in 2020, spending late nights on case preps and trainings. Then, selected into Selangor State Debate Team, and later captained Team Selangor to become the National English Debating Champions.</p>
+      <!-- section index -->
+      <div data-reveal="up" style="display: flex; align-items: center; gap: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: var(--accent, #A31F34);">
+        <span>00</span>
+        <span style="display: inline-block; width: 32px; height: 1px; background: var(--accent, #A31F34);"></span>
+        <span style="color: rgba(244,244,242,0.55);">THE JOURNEY</span>
+      </div>
+
+      <!-- CH.01 : Kuala Lumpur — text left, photo right -->
+      <div id="jch0" data-om-label="CH 1. Malaysia" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: clamp(40px, 7vw, 110px); align-items: center;">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div data-reveal="up"><span style="display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #F4F4F2; background: var(--accent, #A31F34); padding: 5px 12px;">CH.01&nbsp;&nbsp;—&nbsp;&nbsp;3.15°N&nbsp;&nbsp;101.71°E</span></div>
+          <div data-reveal="up" data-reveal-delay="120" style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: clamp(34px, 4.4vw, 62px); line-height: 0.98; letter-spacing: -0.03em;">KUALA LUMPUR</div>
+          <p data-reveal="up" data-reveal-delay="240" style="margin: 0; font-size: clamp(15px, 1.4vw, 18px); line-height: 1.65; color: rgba(244,244,242,0.72); max-width: 42ch; text-wrap: pretty;">Began competitive debate during the COVID lockdown in 2020, spending late nights on case preps and trainings. Then, selected into Selangor State Debate Team, and later captained Team Selangor to become the National English Debating Champions.</p>
+        </div>
+        <div data-jimg="" data-reveal="left" data-reveal-delay="150" style="position: relative; width: min(100%, 400px); aspect-ratio: 4 / 5; justify-self: end;">
+          <div style="position: absolute; inset: 0; overflow: hidden; background: #050506; box-shadow: 0 40px 90px rgba(0,0,0,0.6);">
+            <img src="assets/img/journey-kl.webp" srcset="assets/img/journey-kl-sm.webp 400w, assets/img/journey-kl.webp 800w" sizes="(max-width:720px) 74vw, 400px" width="800" height="1000" loading="lazy" decoding="async" alt="Daryl holding the national English debating championship trophy in front of the Selangor flag" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">
           </div>
-          <figure class="photo reveal" data-reveal="left" data-reveal-delay="150" style="--d:150ms">
-            <div class="photo-frame">
-              <img src="assets/img/journey-kl.webp"
-                   srcset="assets/img/journey-kl-sm.webp 400w, assets/img/journey-kl.webp 800w"
-                   sizes="(max-width:720px) 74vw, 400px"
-                   width="800" height="1000" loading="lazy" decoding="async"
-                   alt="Daryl holding the national English debating championship trophy in front of the Selangor flag">
-            </div>
-            <figcaption>TEAM SELANGOR CAPTAIN · NATIONAL CHAMPIONS</figcaption>
-          </figure>
-        </article>
-
-        <article id="jch1" class="chapter chapter--mirror">
-          <figure class="photo reveal" data-reveal="right" data-reveal-delay="150" style="--d:150ms">
-            <div class="photo-frame">
-              <img src="assets/img/journey-dilijan.webp"
-                   srcset="assets/img/journey-dilijan-sm.webp 400w, assets/img/journey-dilijan.webp 800w"
-                   sizes="(max-width:720px) 74vw, 400px"
-                   width="800" height="1000" loading="lazy" decoding="async"
-                   alt="Daryl with two friends draped in the Malaysian, Armenian and Vietnamese flags at UWC Dilijan">
-            </div>
-          </figure>
-          <div class="chapter-text">
-            <h3 class="chapter-title reveal" data-reveal="up">DILIJAN</h3>
-            <p class="reveal" data-reveal="up" data-reveal-delay="120" style="--d:120ms">The only Malaysian at UWC Dilijan from 2023-2025. Joined a community of 200+ students from 80+ countries at one of the world's most international boarding school. Surrounded by young change-makers, sustainability became a life's purpose.</p>
+          <span style="position: absolute; top: 12px; left: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: #F4F4F2; background: rgba(0,0,0,0.5); padding: 3px 8px; z-index: 2;">CH.01</span>
+          <div data-jcallout="0" data-reveal="up" data-reveal-delay="550" style="position: absolute; top: 16%; left: -16%; display: flex; align-items: center; gap: 9px; z-index: 2;">
+            <span style="display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent, #A31F34); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent, #A31F34) 25%, transparent);"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #F4F4F2; background: rgba(13,14,16,0.88); border: 1px solid rgba(244,244,242,0.16); padding: 6px 10px; white-space: nowrap;">TEAM SELANGOR — CAPTAIN</span>
           </div>
-        </article>
-
-        <article id="jch2" class="chapter-wide">
-          <figure class="photo wide reveal" data-reveal="scale" data-reveal-delay="120" style="--d:120ms">
-            <img src="assets/img/journey-norman.webp"
-                 srcset="assets/img/journey-norman-sm.webp 720w, assets/img/journey-norman.webp 1440w"
-                 sizes="(max-width:720px) calc(100vw - 40px), 960px"
-                 width="1440" height="960" loading="lazy" decoding="async"
-                 alt="Daryl receiving the Outstanding Freshman Award at the University of Oklahoma">
-          </figure>
-          <h3 class="overlay reveal" data-reveal="up" data-reveal-delay="380" style="--d:380ms"><span class="overlay-text">Where purpose meets <span class="accent">engineering</span>.</span></h3>
-        </article>
-
-        <div id="route" class="reveal" data-reveal="fade">
-          <div class="route-track" aria-hidden="true"><span class="route-fill"></span></div>
-          <ol class="route-stops">
-            <li>
-              <span class="stop" data-stop="0" aria-hidden="true"></span>
-              <span class="route-place">KUALA LUMPUR</span>
-              <span class="route-sub">MALAYSIA</span>
-            </li>
-            <li>
-              <span class="stop" data-stop="1" aria-hidden="true"></span>
-              <span class="route-place">DILIJAN</span>
-              <span class="route-sub">UNITED WORLD COLLEGE DILIJAN '25</span>
-            </li>
-            <li>
-              <span class="stop" data-stop="2" aria-hidden="true"></span>
-              <span class="route-place">NORMAN, OK</span>
-              <span class="route-sub">UNIVERSITY OF OKLAHOMA</span>
-            </li>
-          </ol>
+          <div data-jcallout="1" data-reveal="up" data-reveal-delay="700" style="position: absolute; bottom: 20%; right: -12%; display: flex; align-items: center; gap: 9px; z-index: 2;">
+            <span style="display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent, #A31F34); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent, #A31F34) 25%, transparent);"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #F4F4F2; background: rgba(13,14,16,0.88); border: 1px solid rgba(244,244,242,0.16); padding: 6px 10px; white-space: nowrap;">NATIONAL CHAMPIONS</span>
+          </div>
         </div>
       </div>
-    </section>
 
-    <!-- Mission (paper) -->
-    <section id="story" class="paper" aria-labelledby="story-title">
-      <div class="story-grid">
-        <div class="story-text">
-          <h2 id="story-title" class="section-title reveal" data-reveal="up">Building toward a sustainable future.</h2>
-          <p class="reveal" data-reveal="up" data-reveal-delay="80" style="--d:80ms">Energy is fundamental for developing economies to industrialize. Climate change is the opposing force. I want to leverage engineering, economics, and data analytics to design energy systems that resolve that tension, allowing us to grow while mitigating the environmental cost.</p>
-          <p class="reveal" data-reveal="up" data-reveal-delay="140" style="--d:140ms">That means working at the intersection: materials and carbon technologies that perform, and the economic case that gets them deployed at scale.</p>
-        </div>
-        <figure id="strata" class="reveal" data-reveal="left" data-reveal-delay="200" style="--d:200ms">
-          <div class="media-block">
-            <img src="assets/img/strata.webp" width="800" height="1000" loading="lazy" decoding="async" alt="Layered basalt core sample" onerror="this.closest('figure').hidden=true">
+      <!-- CH.02 : Dilijan — photo left, text right -->
+      <div id="jch1" data-om-label="CH. 2 Dilijan" style="display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: clamp(40px, 7vw, 110px); align-items: center;">
+        <div data-jimg="" data-reveal="right" data-reveal-delay="150" style="position: relative; width: min(100%, 400px); aspect-ratio: 4 / 5;">
+          <div style="position: absolute; inset: 0; overflow: hidden; background: #050506; box-shadow: 0 40px 90px rgba(0,0,0,0.6);">
+            <img src="assets/img/journey-dilijan.webp" srcset="assets/img/journey-dilijan-sm.webp 400w, assets/img/journey-dilijan.webp 800w" sizes="(max-width:720px) 74vw, 400px" width="800" height="1000" loading="lazy" decoding="async" alt="Daryl with two friends draped in the Malaysian, Armenian and Vietnamese flags at UWC Dilijan" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">
           </div>
-          <figcaption><span>SUBSURFACE STRATA</span> <span>0-2,400 m</span></figcaption>
-        </figure>
-      </div>
-
-      <div class="statement">
-        <p class="statement-text reveal" data-reveal="up">Technical innovation and economic thinking, working together, can solve <span class="accent">large-scale energy challenges</span>.</p>
-      </div>
-    </section>
-
-    <!-- Research (paper) -->
-    <section id="research" class="paper" aria-labelledby="research-title">
-      <div class="research-grid">
-        <div class="research-aside">
-          <h2 id="research-title" class="section-title reveal" data-reveal="up">My research interests.</h2>
-          <figure id="porous" class="reveal" data-reveal="up" data-reveal-delay="120" style="--d:120ms">
-            <div class="media-block">
-              <img src="assets/img/porous.webp" width="800" height="800" loading="lazy" decoding="async" alt="Micro-CT view of a porous rock sample" onerror="this.closest('figure').hidden=true">
-            </div>
-          </figure>
+          <span style="position: absolute; top: 12px; left: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: #F4F4F2; background: rgba(0,0,0,0.5); padding: 3px 8px; z-index: 2;">CH.02</span>
         </div>
-
-        <ul class="research-list">
-          <li class="reveal" data-reveal="up">
-            <a href="https://www.gunasooriya-lab.com/research" target="_blank" rel="noopener">
-              <div class="row-inner">
-                <h3>Material Science Engineering</h3>
-                <p>Computational modeling of processes and designing of materials to produce sustainable energy, fuels, and chemicals with improved efficiency and durability that drives economic growth while minimizing environmental impacts.</p>
-                <span class="host">gunasooriya-lab.com <span aria-hidden="true">↗</span></span>
-              </div>
-            </a>
-          </li>
-          <li class="reveal" data-reveal="up" data-reveal-delay="80" style="--d:80ms">
-            <a href="https://www.ou.edu/mcee/mpge/research" target="_blank" rel="noopener">
-              <div class="row-inner">
-                <h3>Carbon management &amp; energy transition</h3>
-                <p>Advancing predictive models of multiphase flow in porous media to support CO2 capture, transport, and geological storage initiatives to develop scalable, economically viable solutions for a low-carbon future.</p>
-                <span class="host">ou.edu <span aria-hidden="true">↗</span></span>
-              </div>
-            </a>
-          </li>
-          <li class="reveal" data-reveal="up" data-reveal-delay="160" style="--d:160ms">
-            <a href="https://www.ou.edu/mcee/mpge/research" target="_blank" rel="noopener">
-              <div class="row-inner">
-                <h3>Techno-economic analysis</h3>
-                <p>Applying techno-economic modeling to evaluate whether emerging energy and carbon technologies can scale from lab-stage innovation to commercially viable real-world deployment.</p>
-                <span class="host">ou.edu <span aria-hidden="true">↗</span></span>
-              </div>
-            </a>
-          </li>
-        </ul>
+        <div style="display: flex; flex-direction: column; gap: 16px;" data-om-label="DILIJAN content">
+          <div data-reveal="up" style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: var(--accent, #A31F34);">CH.02&nbsp;&nbsp;—&nbsp;&nbsp;40.74°N&nbsp;&nbsp;44.86°E</div>
+          <div data-reveal="up" data-reveal-delay="120" style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: clamp(34px, 4.4vw, 62px); line-height: 0.98; letter-spacing: -0.03em;">DILIJAN</div>
+          <p data-reveal="up" data-reveal-delay="240" style="margin: 0; font-size: clamp(15px, 1.4vw, 18px); line-height: 1.65; color: rgba(244,244,242,0.72); max-width: 42ch; text-wrap: pretty;">The only Malaysian at UWC Dilijan from 2023-2025. Joined a community of 200+ students from 80+ countries at one of the world's most international boarding school. Surrounded by young change-makers, sustainability became a life's purpose.</p>
+        </div>
       </div>
-    </section>
 
-    <!-- Contact -->
-    <section id="contact" aria-labelledby="contact-title">
-      <div class="contact-inner">
-        <h2 id="contact-title" class="contact-heading reveal" data-reveal="up">
-          <a class="contact-title" href="mailto:daryltyj@ou.edu">
-            <span class="ct-line">Let's build</span>
-            <span class="ct-line ct-grey">the future</span>
-            <span class="ct-line">of <span class="accent ct-energy">energy<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
-          </a>
-        </h2>
-
-        <footer class="site-foot reveal" data-reveal="fade" data-reveal-delay="200" style="--d:200ms">
-          <ul class="foot-links">
-            <li><a href="https://www.linkedin.com/in/daryl10" target="_blank" rel="noopener">LINKEDIN</a></li>
-            <li><a href="mailto:daryltyj@ou.edu">EMAIL</a></li>
-            <li><a href="https://github.com/DarylvativeFunction" target="_blank" rel="noopener">GITHUB</a></li>
-            <li><a href="https://scholar.google.com/citations?user=wssrODYAAAAJ&amp;hl=en" target="_blank" rel="noopener">GOOGLE SCHOLAR</a></li>
-            <li><a href="https://daryl10.com/cv/" target="_blank" rel="noopener">CV</a></li>
-          </ul>
-          <span class="copyright">© 2026 DARYL YI JIN TAN</span>
-        </footer>
+      <!-- CH.03 : Norman — centered photo, headline over it -->
+      <div id="jch2" data-om-label="CH. 3 OU" style="display: flex; flex-direction: column; align-items: center; gap: 28px;">
+        <div data-reveal="up" style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: var(--accent, #A31F34); text-align: center;">CH.03&nbsp;&nbsp;—&nbsp;&nbsp;NORMAN, OK&nbsp;&nbsp;·&nbsp;&nbsp;35.22°N&nbsp;&nbsp;97.44°W</div>
+        <div data-jimg="" data-reveal="scale" data-reveal-delay="120" style="position: relative; width: min(100%, 720px); aspect-ratio: 3 / 2;">
+          <div style="position: absolute; inset: 0; overflow: hidden; background: #050506; box-shadow: 0 40px 90px rgba(0,0,0,0.6);">
+            <img src="assets/img/journey-norman.webp" srcset="assets/img/journey-norman-sm.webp 720w, assets/img/journey-norman.webp 1440w" sizes="(max-width:720px) calc(100vw - 48px), 720px" width="1440" height="960" loading="lazy" decoding="async" alt="Daryl receiving the Outstanding Freshman Award at the University of Oklahoma" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">
+            <div style="position: absolute; inset: 0; background: rgba(5,5,6,0.42);"></div>
+          </div>
+          <span style="position: absolute; top: 12px; left: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: #F4F4F2; background: rgba(0,0,0,0.5); padding: 3px 8px; z-index: 2;">CH.03</span>
+          <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: clamp(16px, 4vw, 48px); z-index: 2; pointer-events: none;">
+            <div data-reveal="up" data-reveal-delay="380" style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: clamp(30px, 4.6vw, 66px); line-height: 1.06; letter-spacing: -0.03em; text-align: center; text-shadow: 0 6px 40px rgba(0,0,0,0.7); text-wrap: balance;">Where purpose meets<br><span style="color: var(--accent, #A31F34);">engineering</span>.</div>
+          </div>
+        </div>
       </div>
-    </section>
 
-  </main>
+      <!-- ===== route ===== -->
+      <div id="jroute-wrap" style="position: sticky; bottom: 0; z-index: 6; margin: clamp(16px, 4vh, 48px) -12px 0; padding: 30px 12px 76px; background: linear-gradient(to top, #0D0E10 78%, rgba(13,14,16,0)); opacity: 0; transform: translateY(16px); transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1);">
+      <div id="jroute" data-om-label="The timeline bar" style="position: relative; height: 2px;">
+        <!-- base line -->
+        <div style="position: absolute; left: 20%; width: 60%; top: 0; height: 1px; background: rgba(244,244,242,0.14);"></div>
+        <!-- crimson draw segments -->
+        <div data-jline="0" style="position: absolute; left: 20%; width: 30%; top: 0; height: 2px; background: var(--accent, #A31F34); transform: scaleX(0); transform-origin: left center;"></div>
+        <div data-jline="1" style="position: absolute; left: 50%; width: 30%; top: 0; height: 2px; background: var(--accent, #A31F34); transform: scaleX(0); transform-origin: left center;"></div>
+
+        <!-- dots -->
+        <div style="position: absolute; left: 20%; top: 0; transform: translate(-50%, -50%);"><span data-jdot="0" style="display: block; width: 11px; height: 11px; border-radius: 50%; background: rgba(244,244,242,0.22); transition: background 0.4s, box-shadow 0.4s, transform 0.4s;"></span></div>
+        <div style="position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%);"><span data-jdot="1" style="display: block; width: 11px; height: 11px; border-radius: 50%; background: rgba(244,244,242,0.22); transition: background 0.4s, box-shadow 0.4s, transform 0.4s;"></span></div>
+        <div style="position: absolute; left: 80%; top: 0; transform: translate(-50%, -50%);"><span data-jdot="2" style="display: block; width: 11px; height: 11px; border-radius: 50%; background: rgba(244,244,242,0.22); transition: background 0.4s, box-shadow 0.4s, transform 0.4s;"></span></div>
+
+        <!-- labels -->
+        <div data-jlabel="0" style="position: absolute; left: 20%; top: 24px; transform: translateX(-50%); text-align: center; opacity: 0.38; transition: opacity 0.6s;">
+          <div style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(12px, 1.2vw, 15px); letter-spacing: 0.01em;">KUALA LUMPUR</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: rgba(244,244,242,0.5); margin-top: 5px;">MALAYSIA</div>
+        </div>
+        <div data-jlabel="1" style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); text-align: center; opacity: 0.38; transition: opacity 0.6s;">
+          <div style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(12px, 1.2vw, 15px); letter-spacing: 0.01em;">DILIJAN</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: rgba(244,244,242,0.5); margin-top: 5px;">ARMENIA</div>
+        </div>
+        <div data-jlabel="2" style="position: absolute; left: 80%; top: 24px; transform: translateX(-50%); text-align: center; opacity: 0.38; transition: opacity 0.6s;">
+          <div style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(12px, 1.2vw, 15px); letter-spacing: 0.01em;">NORMAN, OK</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: rgba(244,244,242,0.5); margin-top: 5px;">UNITED STATES</div>
+        </div>
+      </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="story" data-screen-label="Mission" style="position: relative; padding: clamp(96px, 14vh, 160px) clamp(24px, 5vw, 72px); box-sizing: border-box;">
+    <div id="story-grid" style="max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: clamp(40px, 6vw, 96px); align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 28px;">
+        <div data-reveal="up" style="display: flex; align-items: center; gap: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: var(--accent, #A31F34);">
+          <span>01</span>
+          <span style="display: inline-block; width: 32px; height: 1px; background: var(--accent, #A31F34);"></span>
+          <span style="color: color-mix(in oklab, var(--ink, #17181A) 55%, transparent);">MISSION</span>
+        </div>
+        <h2 data-reveal="up" data-reveal-delay="80" style="margin: 0; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(34px, 4.6vw, 64px); line-height: 1.04; letter-spacing: -0.025em; text-wrap: balance;">Building toward a sustainable future.</h2>
+        <p data-reveal="up" data-reveal-delay="140" style="margin: 0; font-size: clamp(16px, 1.5vw, 19px); line-height: 1.65; max-width: 58ch; color: color-mix(in oklab, var(--ink, #17181A) 82%, transparent); text-wrap: pretty;">Energy is fundamental for developing economies to industrialize. Climate change is the opposing force. I want to leverage engineering, economics, and data analytics to design energy systems that resolve that tension, allowing us to grow while mitigating the environmental cost.</p>
+        <p data-reveal="up" data-reveal-delay="200" style="margin: 0; font-size: clamp(16px, 1.5vw, 19px); line-height: 1.65; max-width: 58ch; color: color-mix(in oklab, var(--ink, #17181A) 82%, transparent); text-wrap: pretty;">
+          That means working at the intersection: materials and carbon technologies that perform, and the economic case that gets them deployed at scale.
+        </p>
+      </div>
+      <!-- strata motif -->
+      <div id="story-strata" data-reveal="left" data-reveal-delay="200" aria-hidden="true" style="display: flex; flex-direction: column; gap: 10px; padding-top: 56px;">
+        <div style="height: 44px; background: color-mix(in oklab, var(--ink, #17181A) 8%, transparent);"></div>
+        <div style="height: 28px; background: color-mix(in oklab, var(--ink, #17181A) 14%, transparent); width: 88%;"></div>
+        <div style="height: 60px; background: color-mix(in oklab, var(--ink, #17181A) 6%, transparent); width: 96%;"></div>
+        <div style="height: 12px; background: var(--accent, #A31F34); width: 62%;"></div>
+        <div style="height: 36px; background: color-mix(in oklab, var(--ink, #17181A) 11%, transparent); width: 92%;"></div>
+        <div style="height: 20px; background: color-mix(in oklab, var(--ink, #17181A) 18%, transparent); width: 72%;"></div>
+        <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: color-mix(in oklab, var(--ink, #17181A) 45%, transparent); padding-top: 6px;">
+          <span>SUBSURFACE STRATA</span>
+          <span>0–2,400 m</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INTERLUDE ============ -->
+  <section data-screen-label="Interlude" style="position: relative; background: #0D0E10; color: #F4F4F2; overflow: hidden; padding: clamp(120px, 20vh, 220px) clamp(24px, 5vw, 72px); box-sizing: border-box;">
+    <blockquote data-reveal="up" style="position: relative; margin: 0 auto; max-width: 1100px; font-family: 'Archivo', sans-serif; font-weight: 600; font-size: clamp(30px, 4.4vw, 60px); line-height: 1.18; letter-spacing: -0.02em; text-wrap: balance;">
+      “Technical innovation and economic thinking, working together, can solve <span style="color: var(--accent, #A31F34);">large-scale energy challenges</span>.”
+    </blockquote>
+  </section>
+
+  <!-- ============ RESEARCH ============ -->
+  <section id="research" data-screen-label="Research" style="position: relative; padding: clamp(96px, 14vh, 160px) clamp(24px, 5vw, 72px); box-sizing: border-box;">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(40px, 6vh, 64px);">
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div data-reveal="up" style="display: flex; align-items: center; gap: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: var(--accent, #A31F34);">
+          <span>02</span>
+          <span style="display: inline-block; width: 32px; height: 1px; background: var(--accent, #A31F34);"></span>
+          <span style="color: color-mix(in oklab, var(--ink, #17181A) 55%, transparent);">RESEARCH</span>
+        </div>
+        <h2 data-reveal="up" data-reveal-delay="80" style="margin: 0; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(34px, 4.6vw, 64px); line-height: 1.04; letter-spacing: -0.025em;">My research interests.</h2>
+      </div>
+
+      <div id="research-list" style="display: flex; flex-direction: column; border-top: 1px solid color-mix(in oklab, var(--ink, #17181A) 18%, transparent);">
+        <a href="https://www.gunasooriya-lab.com/research" target="_blank" rel="noopener" data-reveal="up" style="display: grid; grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1.3fr); gap: clamp(16px, 3vw, 40px); align-items: baseline; padding: clamp(28px, 4vh, 44px) 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink, #17181A) 18%, transparent); transition: background 0.3s, padding-left 0.3s;" style-hover="background: color-mix(in oklab, var(--ink, #17181A) 5%, transparent); padding-left: 20px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent, #A31F34);">R.01</span>
+          <span style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(20px, 2.4vw, 30px); letter-spacing: -0.015em;">Material Science Engineering</span>
+          <span style="font-size: 15px; line-height: 1.6; color: color-mix(in oklab, var(--ink, #17181A) 68%, transparent); text-wrap: pretty;">Computational modeling of processes and designing of materials to produce sustainable energy, fuels, and chemicals with improved efficiency and durability that drives economic growth while minimizing environmental impacts.</span>
+        </a>
+        <a href="https://www.ou.edu/mcee/mpge/research" target="_blank" rel="noopener" data-reveal="up" data-reveal-delay="80" style="display: grid; grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1.3fr); gap: clamp(16px, 3vw, 40px); align-items: baseline; padding: clamp(28px, 4vh, 44px) 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink, #17181A) 18%, transparent); transition: background 0.3s, padding-left 0.3s;" style-hover="background: color-mix(in oklab, var(--ink, #17181A) 5%, transparent); padding-left: 20px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent, #A31F34);">R.02</span>
+          <span style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(20px, 2.4vw, 30px); letter-spacing: -0.015em;">Carbon management &amp; energy transition</span>
+          <span style="font-size: 15px; line-height: 1.6; color: color-mix(in oklab, var(--ink, #17181A) 68%, transparent); text-wrap: pretty;">Advancing predictive models of multiphase flow in porous media to support CO2 capture, transport, and geological storage initiatives to develop scalable, economically viable solutions for a low-carbon future.&nbsp;</span>
+        </a>
+        <a href="https://www.ou.edu/mcee/mpge/research" target="_blank" rel="noopener" data-reveal="up" data-reveal-delay="160" style="display: grid; grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1.3fr); gap: clamp(16px, 3vw, 40px); align-items: baseline; padding: clamp(28px, 4vh, 44px) 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink, #17181A) 18%, transparent); transition: background 0.3s, padding-left 0.3s;" style-hover="background: color-mix(in oklab, var(--ink, #17181A) 5%, transparent); padding-left: 20px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent, #A31F34);">R.03</span>
+          <span style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: clamp(20px, 2.4vw, 30px); letter-spacing: -0.015em;">Techno-economic analysis</span>
+          <span style="font-size: 15px; line-height: 1.6; color: color-mix(in oklab, var(--ink, #17181A) 68%, transparent); text-wrap: pretty;">Applying techno-economic modeling to evaluate whether emerging energy and carbon technologies can scale from lab-stage innovation to commercially viable real-world deployment.<br></span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONTACT ============ -->
+  <section id="contact" data-screen-label="Contact" style="position: relative; background: #0D0E10; color: #F4F4F2; overflow: hidden; padding: clamp(96px, 16vh, 180px) clamp(24px, 5vw, 72px) 40px; box-sizing: border-box;">
+    <div style="position: relative; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(40px, 7vh, 72px);">
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div data-reveal="up" style="display: flex; align-items: center; gap: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: var(--accent, #A31F34);">
+          <span>03</span>
+          <span style="display: inline-block; width: 32px; height: 1px; background: var(--accent, #A31F34);"></span>
+          <span style="color: rgba(244,244,242,0.55);">CONTACT</span>
+        </div>
+        <a class="contact-title" data-reveal="up" data-reveal-delay="80" href="https://www.linkedin.com/in/daryl10" target="_blank" rel="noopener" style="display: block; font-family: 'Archivo', sans-serif; font-weight: 800; font-size: clamp(48px, 8.5vw, 140px); line-height: 0.98; letter-spacing: -0.03em; text-transform: uppercase;" style-hover="color: #F4F4F2;">
+          <span style="display: block; color: #F4F4F2;">Let's build</span>
+          <span style="display: block; color: #8A8B8C;">the future</span>
+          <span style="display: block; color: #F4F4F2;">of <span style="display: inline-flex; align-items: center; gap: 0.06em; color: var(--accent, #A31F34);">energy<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width: 0.62em; height: 0.62em; flex: none;"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="var(--accent, #A31F34)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span>
+        </a>
+      </div>
+      <div data-reveal="fade" data-reveal-delay="200" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; border-top: 1px solid rgba(244,244,242,0.15); padding-top: 24px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: rgba(244,244,242,0.6);">
+        <div style="display: flex; flex-wrap: wrap; gap: clamp(16px, 3vw, 32px);">
+          <a href="https://www.linkedin.com/in/daryl10" target="_blank" rel="noopener">LINKEDIN</a>
+          <a href="mailto:daryltyj@ou.edu">EMAIL</a>
+          <a href="https://github.com/DarylvativeFunction" target="_blank" rel="noopener">GITHUB</a>
+          <a href="https://scholar.google.com/citations?user=wssrODYAAAAJ&amp;hl=en" target="_blank" rel="noopener">GOOGLE SCHOLAR</a>
+          <a href="https://daryl10.com/cv/" target="_blank" rel="noopener">CV</a>
+        </div>
+        <span>© 2026 DARYL YI JIN TAN</span>
+      </div>
+    </div>
+  </section>
+
+</div>
 </body>
 </html>

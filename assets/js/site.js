@@ -1,136 +1,281 @@
-// site.js - reveals, scroll progress bar and journey timeline (vanilla ES module).
+// site.js - scroll behaviours for the page (vanilla ES module).
+// Ported from the original page script: scroll-in reveals (which also un-reveal),
+// pointer tilt on the journey photos, scroll progress bar, the sticky journey
+// route timeline, and smooth wheel scrolling. The molecule intro lives in molecule.js.
 
-// Flag JS as running so CSS can scope the hidden reveal state to html.js .reveal.
 const root = document.documentElement;
 root.classList.add('js');
 
 const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const motionOn = !reduceMotion;
 
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const EASE = 'cubic-bezier(0.22,1,0.36,1)';
 
-// Cache element references once.
-const els = {
-  progress: document.getElementById('progress'),
-  route: document.getElementById('route'),
-  chapters: [0, 1, 2].map((i) => document.getElementById(`jch${i}`)),
-  stops: [],
-};
-if (els.route) {
-  els.route.querySelectorAll('[data-stop]').forEach((stop) => {
-    const i = parseInt(stop.dataset.stop, 10);
-    if (i >= 0 && i <= 2) els.stops[i] = stop;
+/* ---------- reveals ---------- */
+
+// Hidden pose for each reveal kind (shared by initial state and un-reveal).
+function hiddenTransform(kind) {
+  if (kind === 'up') return 'translateY(36px)';
+  if (kind === 'left') return 'translateX(40px)';
+  if (kind === 'right') return 'translateX(-40px)';
+  if (kind === 'scale') return 'scale(0.94)';
+  return 'none';
+}
+
+function revealEl(el) {
+  el.dataset.revealed = '1';
+  const delay = parseInt(el.dataset.revealDelay || '0', 10);
+  el.style.transition = `opacity 0.9s ${EASE} ${delay}ms, transform 0.9s ${EASE} ${delay}ms`;
+  requestAnimationFrame(() => {
+    el.style.opacity = '1';
+    el.style.transform = 'none';
   });
 }
 
-/* ---------- reveals: fire once, never un-reveal ---------- */
+function unrevealEl(el) {
+  delete el.dataset.revealed;
+  el.style.transition = `opacity 0.55s ${EASE}, transform 0.55s ${EASE}`;
+  el.style.opacity = '0';
+  el.style.transform = hiddenTransform(el.dataset.reveal);
+}
 
-function revealEl(el) {
+// Hero elements keep the class-driven one-shot reveal (CSS holds their hidden state).
+function revealClassEl(el) {
   const delay = parseInt(el.dataset.revealDelay || '0', 10) || 0;
   if (delay > 0) {
     el.style.transitionDelay = `${delay}ms`;
-    // Drop the delay once the reveal has started so later hover transitions stay snappy.
     setTimeout(() => { el.style.transitionDelay = ''; }, delay + 1200);
   }
   el.classList.add('is-in');
 }
 
-function revealAll(list) {
-  list.forEach((el) => el.classList.add('is-in'));
-}
-
 function registerReveals() {
-  const list = Array.from(document.querySelectorAll('.reveal, [data-reveal]'));
-  if (!list.length) return;
+  const all = Array.from(document.querySelectorAll('[data-reveal]'));
+  const classed = all.filter((el) => el.classList.contains('reveal'));
+  const inline = all.filter((el) => !el.classList.contains('reveal'));
+
   if (reduceMotion || !('IntersectionObserver' in window)) {
-    revealAll(list);
+    classed.forEach((el) => el.classList.add('is-in'));
+    inline.forEach((el) => {
+      el.style.transition = 'none';
+      el.style.opacity = '1';
+      el.style.transform = 'none';
+    });
     return;
   }
-  const io = new IntersectionObserver((entries, obs) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-      obs.unobserve(entry.target);
-      revealEl(entry.target);
+
+  if (classed.length) {
+    const once = new IntersectionObserver((entries, obs) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        obs.unobserve(entry.target);
+        revealClassEl(entry.target);
+      });
+    }, { threshold: 0.12 });
+    classed.forEach((el) => once.observe(el));
+  }
+
+  if (inline.length) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) revealEl(entry.target);
+        else if (entry.target.dataset.revealed) unrevealEl(entry.target);
+      });
+    }, { threshold: 0.12 });
+    inline.forEach((el) => {
+      if (el.dataset.revealInit) return;
+      el.dataset.revealInit = '1';
+      el.style.opacity = '0';
+      const t = hiddenTransform(el.dataset.reveal);
+      if (t !== 'none') el.style.transform = t;
+      el.style.transition = 'none';
+      io.observe(el);
     });
-  }, { threshold: 0.12 });
-  list.forEach((el) => io.observe(el));
+  }
 }
 
-/* ---------- journey timeline: one-way fill ---------- */
+/* ---------- pointer tilt on journey photos ---------- */
 
-const routeState = { done: [false, false, false], progress: 0, complete: false };
-
-function markStop(i) {
-  if (routeState.done[i]) return;
-  routeState.done[i] = true;
-  if (els.stops[i]) els.stops[i].classList.add('is-done');
+function registerTilts() {
+  if (!motionOn) return;
+  document.querySelectorAll('[data-jimg]').forEach((el) => {
+    if (el.dataset.tiltInit) return;
+    el.dataset.tiltInit = '1';
+    const frame = el.firstElementChild;
+    if (!frame) return;
+    frame.style.transition = `transform 0.3s ${EASE}, box-shadow 0.3s`;
+    frame.style.willChange = 'transform';
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return; // no tilt-jitter while touch-scrolling
+      const r = el.getBoundingClientRect();
+      const nx = (e.clientX - r.left) / r.width - 0.5;
+      const ny = (e.clientY - r.top) / r.height - 0.5;
+      frame.style.transform = `perspective(900px) rotateY(${(nx * 14).toFixed(2)}deg) rotateX(${(-ny * 12).toFixed(2)}deg) scale(1.05)`;
+      frame.style.boxShadow = '0 60px 130px rgba(0,0,0,0.8)';
+    });
+    el.addEventListener('pointerleave', () => {
+      frame.style.transform = 'perspective(900px) rotateY(0deg) rotateX(0deg) scale(1)';
+      frame.style.boxShadow = '0 40px 90px rgba(0,0,0,0.6)';
+    });
+  });
 }
 
-function setRouteProgress(v) {
-  if (!els.route || v <= routeState.progress) return;
-  routeState.progress = v;
-  els.route.style.setProperty('--route-progress', v.toFixed(4));
-}
+/* ---------- journey route timeline ---------- */
 
-function fillRoute() {
-  [0, 1, 2].forEach(markStop);
-  setRouteProgress(1);
-  routeState.complete = true;
-}
+const routeDone = new Set();
 
-// A stop completes once its chapter's center passes the viewport middle;
-// the line fills continuously between consecutive chapter centers.
+// A stage completes the moment its chapter sits centered in view (fully readable)
+// and un-completes when the user scrolls back above that spot.
 function updateRoute() {
-  if (routeState.complete || !els.route) return;
-  if (els.chapters.some((c) => !c)) return;
-  const vmid = window.innerHeight / 2;
-  const centers = els.chapters.map((c) => {
-    const r = c.getBoundingClientRect();
+  const vmid = window.innerHeight / 2 + 30;
+  const centers = ['jch0', 'jch1', 'jch2'].map((id) => {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
     return r.top + r.height / 2;
   });
-  centers.forEach((c, i) => { if (c <= vmid) markStop(i); });
-  const part = (i) => clamp((vmid - centers[i]) / ((centers[i + 1] - centers[i]) || 1), 0, 1);
-  setRouteProgress(0.5 * part(0) + 0.5 * part(1));
-  if (routeState.progress >= 1 && routeState.done.every(Boolean)) routeState.complete = true;
+  if (centers.some((c) => c === null)) return;
+
+  // dots pop exactly when their chapter is centered in view
+  centers.forEach((c, i) => {
+    if (c <= vmid) activateRouteStep(i);
+    else deactivateRouteStep(i);
+  });
+
+  // lines draw continuously while travelling between chapters
+  const route = document.getElementById('jroute');
+  if (route) {
+    const lines = route.querySelectorAll('[data-jline]');
+    [0, 1].forEach((i) => {
+      if (!lines[i]) return;
+      const dist = centers[i + 1] - centers[i] || 1;
+      const p = Math.min(1, Math.max(0, (vmid - centers[i]) / dist));
+      lines[i].style.transform = 'scaleX(' + p.toFixed(4) + ')';
+    });
+  }
+
+  // the whole timeline strip only appears once the KL stage completes
+  const wrap = document.getElementById('jroute-wrap');
+  if (wrap) {
+    const on = routeDone.has(0);
+    wrap.style.opacity = on ? '1' : '0';
+    wrap.style.transform = on ? 'none' : 'translateY(16px)';
+  }
 }
 
-/* ---------- scroll progress bar ---------- */
-
-function updateProgress() {
-  if (!els.progress) return;
-  const max = root.scrollHeight - window.innerHeight;
-  const v = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-  els.progress.style.transform = `scaleX(${v.toFixed(4)})`;
+function activateRouteStep(i) {
+  if (routeDone.has(i)) return;
+  routeDone.add(i);
+  const route = document.getElementById('jroute');
+  if (!route) return;
+  const rootEl = document.getElementById('dt-root');
+  const accent = (rootEl ? getComputedStyle(rootEl).getPropertyValue('--accent').trim() : '') || '#A31F34';
+  const dot = route.querySelectorAll('[data-jdot]')[i];
+  const label = route.querySelectorAll('[data-jlabel]')[i];
+  if (dot) {
+    dot.style.background = accent;
+    dot.style.boxShadow = '0 0 0 5px color-mix(in oklab, ' + accent + ' 20%, transparent)';
+    dot.style.transform = 'scale(1.15)';
+  }
+  if (label) label.style.opacity = '1';
 }
 
-/* ---------- rAF-throttled scroll work ---------- */
+function deactivateRouteStep(i) {
+  if (!routeDone.has(i)) return;
+  routeDone.delete(i);
+  const route = document.getElementById('jroute');
+  if (!route) return;
+  const dot = route.querySelectorAll('[data-jdot]')[i];
+  const label = route.querySelectorAll('[data-jlabel]')[i];
+  if (dot) {
+    dot.style.background = 'rgba(244,244,242,0.22)';
+    dot.style.boxShadow = 'none';
+    dot.style.transform = 'scale(1)';
+  }
+  if (label) label.style.opacity = '0.38';
+}
+
+/* ---------- scroll: progress bar, route, parallax ---------- */
 
 let ticking = false;
 
-function onFrame() {
-  ticking = false;
-  updateProgress();
-  updateRoute();
-}
-
-function requestUpdate() {
+function onScroll() {
   if (ticking) return;
   ticking = true;
-  requestAnimationFrame(onFrame);
+  requestAnimationFrame(() => {
+    ticking = false;
+    const y = window.scrollY;
+    const bar = document.getElementById('progress');
+    if (bar) {
+      const max = root.scrollHeight - window.innerHeight;
+      bar.style.transform = `scaleX(${max > 0 ? Math.min(1, y / max) : 0})`;
+    }
+    updateRoute();
+    if (!motionOn) return;
+    const vh = window.innerHeight;
+    document.querySelectorAll('[data-parallax]').forEach((el) => {
+      const rect = el.parentElement.getBoundingClientRect();
+      const center = rect.top + rect.height / 2 - vh / 2;
+      el.style.transform = `translateY(${(-center * parseFloat(el.dataset.parallax)).toFixed(1)}px)`;
+    });
+  });
+}
+
+/* ---------- smooth wheel scrolling (Lenis-style) ---------- */
+
+function initSmoothScroll() {
+  if (!motionOn) return;
+  if (!window.matchMedia || !window.matchMedia('(pointer: fine)').matches) return; // touch stays native
+  let animating = false;
+  let targetY = 0;
+  let lastT = 0;
+  let lastSet = -1;
+  const step = (now) => {
+    if (!animating) return;
+    const cur = window.scrollY;
+    // Something else moved the page (anchor jump, keyboard, scrollbar drag): yield to it.
+    if (lastSet >= 0 && Math.abs(cur - lastSet) > 2) { animating = false; return; }
+    const diff = targetY - cur;
+    // < 1px: scroll offsets can round to whole pixels, so a sub-pixel threshold never settles.
+    if (Math.abs(diff) < 1) {
+      window.scrollTo({ top: targetY, behavior: 'instant' });
+      animating = false;
+      return;
+    }
+    const dtm = Math.min(0.05, (now - (lastT || now)) / 1000) || 0.016;
+    lastT = now;
+    lastSet = cur + diff * (1 - Math.exp(-dtm * 7));
+    window.scrollTo({ top: lastSet, behavior: 'instant' });
+    requestAnimationFrame(step);
+  };
+  window.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+    e.preventDefault();
+    let d = e.deltaY;
+    if (e.deltaMode === 1) d *= 16;
+    else if (e.deltaMode === 2) d *= window.innerHeight;
+    const max = root.scrollHeight - window.innerHeight;
+    if (!animating) targetY = window.scrollY;
+    targetY = Math.max(0, Math.min(max, targetY + d));
+    if (!animating) {
+      animating = true;
+      lastSet = -1;
+      lastT = performance.now();
+      requestAnimationFrame(step);
+    }
+  }, { passive: false });
 }
 
 /* ---------- boot ---------- */
 
 function init() {
   registerReveals();
-  if (reduceMotion) {
-    fillRoute();
-    return;
-  }
-  if (els.route) els.route.style.setProperty('--route-progress', '0');
-  window.addEventListener('scroll', requestUpdate, { passive: true });
-  window.addEventListener('resize', requestUpdate, { passive: true });
-  window.addEventListener('load', requestUpdate, { once: true });
-  requestUpdate();
+  registerTilts();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  window.addEventListener('load', onScroll, { once: true });
+  onScroll();
+  initSmoothScroll();
 }
 
 init();
