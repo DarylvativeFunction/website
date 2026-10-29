@@ -81,7 +81,7 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const FRAG = `
 precision highp float;
 uniform vec2 uSize, uTex;
-uniform float uDpr, uRes, uPh, uS, uB, uWarp, uGain, uRead, uSpT, uFs, uSpS, uFill, uBend, uQ, uSharp;
+uniform float uDpr, uRes, uPh, uS, uB, uWarp, uGain, uRead, uSpT, uFs, uSpS, uFill, uBend, uQ, uSharp, uRet, uDef;
 uniform sampler2D uDist, uSoft;
 varying vec2 vUv;
 
@@ -129,9 +129,13 @@ void main() {
   float fT = -dcss / uSpT;
   float r = max(-dcss, 0.0);
 
-  float fBase = mix(fR, fS, uS);
+  vec2 eq = (p / uSize - vec2(0.5, 0.47)) * vec2(1.0, uSize.y / uSize.x * 1.6);
+  float edgeN = clamp(length(eq) * 1.5, 0.0, 1.0);
+  float Sx = uS * (1.0 - clamp(uRet * 1.8 - (1.0 - edgeN) * 0.8, 0.0, 1.0));
+  fS -= uDef * 15.0 * exp(-r / (uFs * 0.9));   // strata pile up into an anticline over the name
+  float fBase = mix(fR, fS, Sx);
   float fNo = mix(fBase, fT, uB);
-  float resW = (1.0 - uS) * (1.0 - uB);
+  float resW = (1.0 - Sx) * (1.0 - uB);
   float f = fNo + fault * resW;
 
   // ---- iso-line evaluation with screen-space AA ----
@@ -154,7 +158,7 @@ void main() {
   float cR = 1.0 - clamp((fR + 3.0) / 26.0, 0.0, 1.0);
   float cS = 0.50 - 0.28 * (p.y / uSize.y - 0.5);
   float cT = mix(0.12, 1.0, exp(-r / (uFs * 0.5)));
-  float c = mix(mix(cR, cS, uS), cT, uB);
+  float c = mix(mix(cR, cS, Sx), cT, uB);
   vec3 lineCol = mix(ramp3(c), cHi, isIdx * 0.40);
   float amW = resW * smoothstep(4.5, 1.0, fR);
   lineCol = mix(lineCol, amber, amW * 0.85);
@@ -164,7 +168,7 @@ void main() {
   float vig = exp(-dot(q * vec2(1.1, 1.5), q * vec2(1.1, 1.5)) * 1.6);
   vec3 bg = mix(vec3(0.008, 0.016, 0.030), vec3(0.018, 0.048, 0.075), vig);
   bg += amber * 0.040 * smoothstep(3.0, -5.0, fR) * resW;
-  bg += amber * 0.30 * inside * uFill * (0.55 + 0.7 * exp(-max(dcss, 0.0) / 7.0));
+  bg += vec3(0.07, 0.26, 0.34) * inside * uFill * (0.30 + 1.0 * exp(-max(dcss, 0.0) / 9.0));
   bg += cHi * 0.035 * exp(-abs(dcss) / 6.0) * uB;
 
   // map graticule: faint registration crosses
@@ -222,7 +226,7 @@ export default {
       uRes: { value: 1 }, uPh: { value: 0 }, uS: { value: 0 }, uB: { value: 0 }, uWarp: { value: 0 },
       uGain: { value: 1 }, uRead: { value: 0 }, uSpT: { value: 12 }, uFs: { value: 120 }, uSpS: { value: 30 },
       uFill: { value: 0 }, uBend: { value: 0.4 }, uQ: { value: low ? 0.6 : 1 },
-      uDist: { value: null }, uSoft: { value: null }, uSharp: { value: 0 },
+      uDist: { value: null }, uSoft: { value: null }, uSharp: { value: 0 }, uRet: { value: 0 }, uDef: { value: 0 },
     };
     const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, depthTest: false, depthWrite: false });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
@@ -284,17 +288,20 @@ export default {
       stats: `1 fullscreen shader · ${tex.image.width}x${tex.image.height} distance field · 24 levels`,
       update(t) {
         const ph = (TAU * t) / D;
-        const S = easeInOutCubic(ramp(t, 2.3, 4.9)) * (1 - easeInOutCubic(ramp(t, T.out[0], D)));
-        const Bin = easeInOutCubic(ramp(t, 4.6, nameAt));
+        const S = easeInOutCubic(ramp(t, 2.3, 4.9));
+        const ret = easeInOutSine(ramp(t, D - 2.3, D));
+        const Bin = easeInOutCubic(ramp(t, 6.4, nameAt));
         const Bout = easeInOutSine(ramp(t, nameAt + 0.4, nameAt + 1.2));
         const B = Bin * (1 - Bout);
-        const dim = easeInOutSine(ramp(t, nameAt + 0.6, nameAt + 2.8)) * (1 - easeInOutSine(ramp(t, T.out[0], D - 0.3)));
+        const dim = easeInOutSine(ramp(t, nameAt + 0.6, nameAt + 2.8)) * (1 - easeInOutSine(ramp(t, D - 1.3, D)));
         const fillIn = ramp(t, nameAt - 1.6, nameAt);
         const fill = fillIn * fillIn * (1 - ramp(t, nameAt + 0.3, nameAt + 1.15));
 
         const u = uniforms;
         u.uPh.value = ph;
         u.uS.value = S;
+        u.uRet.value = ret;
+        u.uDef.value = easeInOutCubic(ramp(t, 4.4, 6.8)) * (1 - ramp(t, nameAt, nameAt + 0.3));
         u.uB.value = B;
         const sh = ramp(Bin, 0.5, 0.95);
         u.uSharp.value = sh * sh * (3 - 2 * sh);
@@ -310,7 +317,7 @@ export default {
         const L = Math.max(h, w * 0.5) * 0.5;
         const wx = w * 0.5 + (0.22 * A + 0.025 * Math.sin(ph)) * L;
         const wy = h * 0.47 + (-0.08 + 0.025 * Math.cos(ph)) * L;
-        const vis = (1 - S) * (1 - B);
+        const vis = (1 - S * (1 - ret)) * (1 - B);
         wellLabel.style.transform = `translate(${(wx + 14).toFixed(1)}px, ${(wy - 6).toFixed(1)}px)`;
         wellLabel.style.opacity = vis.toFixed(3);
         legend.style.opacity = (0.9 * vis).toFixed(3);
