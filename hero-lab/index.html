@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hero Lab · Daryl Tan</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0D0E10">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/archivo-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/plexmono-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="lab.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.min.js",
+        "three/addons": "./vendor/three-addons.min.js",
+        "gsap": "./vendor/gsap.min.js"
+      }
+    }
+  </script>
+  <script type="module" src="lab.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="../" title="Back to daryl10.com"><span class="brand-mark">DT</span><span class="brand-label">Hero Lab</span></a>
+    <nav class="tabs" id="tabs" aria-label="Prototypes"></nav>
+    <div class="seg" id="mode" role="group" aria-label="Layout">
+      <button data-mode="single" aria-pressed="true">Single</button>
+      <button data-mode="compare">Side by side</button>
+      <button data-mode="grid">All six</button>
+    </div>
+    <div class="seg" id="frame" role="group" aria-label="Viewport">
+      <button data-frame="fill" aria-pressed="true">Desktop</button>
+      <button data-frame="mobile">Mobile</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="stage-wrap">
+      <div class="stage" id="stage" data-mode="single" data-frame="fill"></div>
+      <p class="rm-note" id="rm-note" hidden>Reduced motion is on: showing the settled frame. Press play to watch the animation anyway.</p>
+    </section>
+
+    <aside class="panel" id="panel">
+      <div class="about">
+        <p class="eyebrow" id="about-id">Prototype A</p>
+        <h2 id="about-name">-</h2>
+        <p id="about-blurb" class="blurb"></p>
+        <dl class="specs" id="about-specs"></dl>
+      </div>
+
+      <div class="score" id="score">
+        <div class="score-head">
+          <p class="eyebrow">Your evaluation</p>
+          <button class="star" id="star" aria-pressed="false" title="Shortlist this prototype">☆ Shortlist</button>
+        </div>
+        <div id="criteria"></div>
+        <label class="notes"><span class="eyebrow">Notes</span><textarea id="notes" rows="3" placeholder="What works, what doesn't…"></textarea></label>
+      </div>
+
+      <div class="board">
+        <div class="score-head">
+          <p class="eyebrow">Leaderboard</p>
+          <div class="seg seg-sm" id="board-src" role="group" aria-label="Scores">
+            <button data-src="you" aria-pressed="true">You</button>
+            <button data-src="claude">Claude</button>
+          </div>
+        </div>
+        <ol id="board"></ol>
+        <p class="review" id="review"></p>
+        <button class="link" id="export">Copy scores as JSON</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="transport">
+    <div class="tx-buttons">
+      <button class="icon" id="play" title="Play / pause (Space)" aria-label="Pause">❚❚</button>
+      <button class="icon" id="replay" title="Replay (R)" aria-label="Replay">↺</button>
+      <label class="speed" title="Speed ([ and ])"><span class="sr">Speed</span>
+        <select id="speed">
+          <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option>
+        </select>
+      </label>
+    </div>
+    <div class="timeline" id="timeline" role="slider" tabindex="0" aria-label="Timeline" aria-valuemin="0" aria-valuemax="18" aria-valuenow="0">
+      <div class="phases" id="phases"></div>
+      <div class="playhead" id="playhead"></div>
+    </div>
+    <div class="readouts">
+      <span id="clock" class="mono">00.0 / 00.0s</span>
+      <span id="phase-now" class="mono phase-now">-</span>
+      <span id="fps" class="mono fps">- fps</span>
+      <div class="seg seg-sm" id="quality" role="group" aria-label="Quality">
+        <button data-q="high" aria-pressed="true">HQ</button>
+        <button data-q="low">LQ</button>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
