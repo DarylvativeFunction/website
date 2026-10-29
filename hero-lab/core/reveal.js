@@ -151,8 +151,10 @@ export function createReveal(container, opts = {}) {
     ft(tan, { x: W.tan.x0 }, { x: W.tan.x1, duration: s1 - s0, ease: 'power3.inOut' }, s0);
 
     const [y0, y1] = T.yijin;
-    ft(yijin, { opacity: 0, y: y + L.fontSize * 0.06, clipPath: 'inset(-25% 50% -35% 50%)' },
-      { opacity: 1, y, clipPath: 'inset(-25% 0% -35% 0%)', duration: y1 - y0, ease: 'power3.out' }, y0);
+    // the clip opens from the centre; opacity trails it so the first sliver never reads as a speck in the gap
+    ft(yijin, { y: y + L.fontSize * 0.06, clipPath: 'inset(-25% 50% -35% 50%)' },
+      { y, clipPath: 'inset(-25% 0% -35% 0%)', duration: y1 - y0, ease: 'power3.out' }, y0);
+    ft(yijin, { opacity: 0 }, { opacity: 1, duration: (y1 - y0) * 0.75, ease: 'power2.inOut' }, y0 + (y1 - y0) * 0.2);
 
     const [b0, b1] = T.subtitle;
     ft(rule, { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: (b1 - b0) * 1.1, ease: 'power3.inOut' }, b0 - 0.15);

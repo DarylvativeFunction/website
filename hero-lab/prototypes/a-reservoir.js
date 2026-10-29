@@ -342,7 +342,7 @@ export default {
       uniforms: shared({ uGrow: { value: 0 }, uHead: { value: 0 }, uPerf: { value: 0 }, uTop: { value: 3.8 }, uTip: { value: 0.3 } }),
       vertexShader: `
         attribute vec4 aG; // kind (0 head, 1 perforation), size, phase, perf y fraction
-        uniform float uGrow, uHead, uPerf, uTop, uTip, uDpr, uCamZ, uT;
+        uniform float uGrow, uHead, uPerf, uTop, uTip, uDpr, uCamZ, uT, uS;
         varying float vA; varying float vKind;
         void main() {
           vec3 p = position;
@@ -352,7 +352,7 @@ export default {
           float flick = 0.75 + 0.25 * sin(uT * 7.0 + aG.z * 6.28);
           vA = aG.x < 0.5 ? uHead : uPerf * flick;
           vKind = aG.x;
-          gl_PointSize = aG.y * uDpr * (uCamZ / -mv.z);
+          gl_PointSize = aG.y * uDpr * (uCamZ / -mv.z) * mix(0.55, 1.0, uS);
         }`,
       fragmentShader: `
         varying float vA; varying float vKind;
@@ -442,8 +442,8 @@ export default {
         void main() {
           float ph = fract(uT * 0.55 + vPulse * 7.0);
           float pulse = step(vPulse, 0.12) * exp(-pow((vS - ph) / 0.05, 2.0));
-          float a = vA * (0.22 + pulse * 0.8);
-          vec3 c = vec3(0.36, 0.78, 1.0) * vA * 0.22 + vec3(0.95, 0.68, 0.30) * vA * pulse * 0.8;
+          float a = vA * (0.15 + pulse * 0.8);
+          vec3 c = vec3(0.36, 0.78, 1.0) * vA * 0.15 + vec3(0.95, 0.68, 0.30) * vA * pulse * 0.8;
           gl_FragColor = vec4(c, a);
         }`,
     });
@@ -795,8 +795,8 @@ export default {
         const ras = rasterizeName(L, { which: 'short', res: 0.5 });
         let ink = 0; for (let q = 0; q < ras.data.length; q++) if (ras.data[q] >= 128) ink++;
         const pxPerNode = ink / 0.25 / NN;
-        nodeMat.uniforms.uNamePx.value = clamp(Math.sqrt(pxPerNode) * 1.35, 1.4, 4.2);
-        nodeMat.uniforms.uNameA.value = clamp(0.55 + pxPerNode * 0.06, 0.55, 1.0);
+        nodeMat.uniforms.uNamePx.value = clamp(Math.sqrt(pxPerNode) * 1.35, 1.9, 4.2);
+        nodeMat.uniforms.uNameA.value = clamp(0.7 + pxPerNode * 0.05, 0.7, 1.0);
       }
 
       // read phase: the strata return, face-on and dim, below the subtitle
@@ -810,7 +810,7 @@ export default {
 
       strataMat.uniforms.uPx.value = lerp(1.25, 1.75, S);
       flowMat.uniforms.uPx.value = lerp(1.6, 2.1, S);
-      nodeMat.uniforms.uPx.value = lerp(1.8, 2.6, S);
+      nodeMat.uniforms.uPx.value = lerp(2.2, 3.3, S);
 
       renderer.setSize(w, h, false);
       if (composer) { composer.setSize(w, h); bloom.resolution.set(w, h); }

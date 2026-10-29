@@ -58,7 +58,7 @@ export default {
     { label: 'Strata', start: 0, end: 2.4 }, ...
   ],
   reveal: { colors: { name, yijin, sub, accent, rule, glow } },  // optional CSS colors
-  posterTime: 13,        // optional: frame shown under prefers-reduced-motion
+  posterTime: 13,        // optional: frame shown under prefers-reduced-motion (must fall in timing.read)
   create(ctx) { ...; return { update(t, dt), resize(ctx), dispose(), stats } },
 };
 ```

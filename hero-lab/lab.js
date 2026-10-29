@@ -223,7 +223,12 @@ function rebuild() {
     buildTimeline();
     if (reduceMotion && !state.playing && !params.has('t')) {
       const v = viewports[0];
-      if (v?.def) state.elapsed = v.def.posterTime ?? (v.timing.read[0] + 0.8);
+      // Reduced motion must land on the settled full name + subtitle, so a poster
+      // time is only honoured inside the read phase.
+      if (v?.def) {
+        const pt = v.def.posterTime, [r0, r1] = v.timing.read;
+        state.elapsed = pt >= r0 && pt <= r1 ? pt : r0 + 0.8;
+      }
       $('#rm-note').hidden = false;
     }
     dirty = true;
