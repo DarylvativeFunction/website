@@ -52,6 +52,7 @@ const GLSL_GEO = /* glsl */`
   float resTop(vec2 p) { return 0.02 + 0.98 * dome(p) + und(p, 2.0); }
   float resBase(vec2 p) { return -0.78 + 0.80 * dome(p) + 0.8 * und(p, 3.0); }
   uniform vec3 uCamL; // camera position in block space
+  uniform float uDens; // brightness compensation when the block is drawn small (narrow screens)
   // fade geometry lying on a vertical face of the block when that face is seen edge-on
   float faceFade(vec3 p) {
     vec3 v = normalize(uCamL - p);
@@ -180,6 +181,7 @@ export default {
       uFogNear: { value: 18 }, uFogFar: { value: 30 },
       uT: { value: 0 }, uDpr: { value: dpr }, uCamZ: { value: CAM_Z }, uS: { value: 1 },
       uCamL: { value: new THREE.Vector3(0, 0, CAM_Z) },
+      uDens: { value: 1 },
       uLoose: { value: 0 }, uMorph: { value: 0 }, uDisperse: { value: 0 }, uDrift: { value: 0 },
     };
     const shared = (extra) => Object.assign({}, U, extra);
@@ -233,7 +235,7 @@ export default {
           gl_Position = projectionMatrix * mv;
           float depth = -mv.z;
           float light = 0.78 + 0.34 * smoothstep(-1.0, 1.0, (-p.x * 0.10 + p.y * 0.42 + p.z * 0.14));
-          vA = uAlpha * (rev + band * 1.3 + glint) * fogOf(depth) * (1.0 - smoothstep(0.45, 1.0, s)) * ff;
+          vA = uDens * uAlpha * (rev + band * 1.3 + glint) * fogOf(depth) * (1.0 - smoothstep(0.45, 1.0, s)) * ff;
           vCol = aCol * light + vec3(0.55, 0.85, 1.0) * (band * 0.7 + glint * 0.35) + vec3(0.4, 0.7, 1.0) * es * 0.6;
           gl_PointSize = uPx * uDpr * (uCamZ / depth) * (0.7 + 0.6 * aSeed.y) * (1.0 + band * 0.8);
         }`,
@@ -261,7 +263,7 @@ export default {
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           gl_Position = projectionMatrix * mv;
           vHot = smoothstep(0.45, 0.0, r);
-          vA = uAlpha * inside * smoothstep(0.0, 0.08, u) * smoothstep(0.015, 0.09, r) * fogOf(-mv.z) * (0.55 + 0.45 * aPh.y);
+          vA = uDens * uAlpha * inside * smoothstep(0.0, 0.08, u) * smoothstep(0.015, 0.09, r) * fogOf(-mv.z) * (0.55 + 0.45 * aPh.y);
           gl_PointSize = uPx * uDpr * (uCamZ / -mv.z) * (0.8 + 0.5 * aPh.y + vHot * 0.6);
         }`,
       fragmentShader: `
@@ -282,7 +284,7 @@ export default {
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          vU = aU; vA = uAlpha * fogOf(-mv.z);
+          vU = aU; vA = sqrt(uDens) * uAlpha * fogOf(-mv.z);
         }`,
       fragmentShader: `
         uniform float uT; varying float vU; varying float vA;
@@ -305,8 +307,8 @@ export default {
           float rn = length(p.xz / uHalf) / 1.4142;
           float d = uSweep - rn;
           float ff = faceFade(p);
-          vA = aW * uAlpha * smoothstep(0.0, 0.05, d) * fogOf(-(modelViewMatrix * vec4(p, 1.0)).z) * ff;
-          vBand = ff * exp(-d * d / 0.0016) * aW * step(0.0, d + 0.06) * (1.0 - smoothstep(1.0, 1.12, uSweep)) * step(0.001, uAlpha);
+          vA = sqrt(uDens) * aW * uAlpha * smoothstep(0.0, 0.05, d) * fogOf(-(modelViewMatrix * vec4(p, 1.0)).z) * ff;
+          vBand = sqrt(uDens) * ff * exp(-d * d / 0.0016) * aW * step(0.0, d + 0.06) * (1.0 - smoothstep(1.0, 1.12, uSweep)) * step(0.001, uAlpha);
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
         }`,
       fragmentShader: `
@@ -399,7 +401,7 @@ export default {
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           gl_Position = projectionMatrix * mv;
           float fog = mix(fogOf(-mv.z), 1.0, e);
-          vA = uAlpha * smoothstep(0.0, 0.6, a0) * fog * mix(0.55 + 0.45 * aMeta.w, uNameA, e);
+          vA = uAlpha * smoothstep(0.0, 0.6, a0) * fog * mix((0.55 + 0.45 * aMeta.w) * uDens, uNameA, e);
           vE = e;
           float px = mix(uPx * (0.75 + 0.5 * aMeta.w), uNamePx, e);
           gl_PointSize = px * uDpr * (uCamZ / -mv.z) * (1.0 + vFlash * 0.8);
@@ -431,7 +433,7 @@ export default {
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           gl_Position = projectionMatrix * mv;
           float arrive = max(eA, eB);
-          vA = uAlpha * step(0.001, g) * (1.0 - smoothstep(0.0, 0.55, arrive)) * fogOf(-mv.z) * (aE.w > 0.5 ? 0.45 : 1.0);
+          vA = uDens * uAlpha * step(0.001, g) * (1.0 - smoothstep(0.0, 0.55, arrive)) * fogOf(-mv.z) * (aE.w > 0.5 ? 0.45 : 1.0);
           vS = aE.x * g;
           vPulse = aE.z;
         }`,
@@ -496,6 +498,8 @@ export default {
       S = Math.min(1, (visW * 0.9) / proj);
       world.scale.setScalar(S);
       U.uS.value = S;
+      U.uDens.value = clamp(S * S * 1.15, 0.3, 1);
+      if (bloom) bloom.strength = 0.55 * lerp(0.55, 1, S);
       bgAspect = aspect;
       bgMat.uniforms.uAspect.value = aspect;
 
@@ -792,7 +796,7 @@ export default {
         let ink = 0; for (let q = 0; q < ras.data.length; q++) if (ras.data[q] >= 128) ink++;
         const pxPerNode = ink / 0.25 / NN;
         nodeMat.uniforms.uNamePx.value = clamp(Math.sqrt(pxPerNode) * 1.35, 1.4, 4.2);
-        nodeMat.uniforms.uNameA.value = clamp(0.35 + pxPerNode * 0.05, 0.4, 0.95);
+        nodeMat.uniforms.uNameA.value = clamp(0.55 + pxPerNode * 0.06, 0.55, 1.0);
       }
 
       // read phase: the strata return, face-on and dim, below the subtitle
