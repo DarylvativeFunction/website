@@ -129,9 +129,7 @@ void main() {
   float fT = -dcss / uSpT;
   float r = max(-dcss, 0.0);
 
-  float edgeN = clamp((length((p - origin()) / vec2(uFs * 2.6, uFs * 0.9)) - 1.0) / 2.2, 0.0, 1.0);
-  float rk = clamp((uRet - (1.0 - edgeN) * 0.82) / 0.18, 0.0, 1.0);
-  float Sx = uS * (1.0 - rk * rk * (3.0 - 2.0 * rk));
+  float Sx = uS * (1.0 - uRet);
   fS -= uDef * 15.0 * exp(-r / (uFs * 0.9));   // strata pile up into an anticline over the name
   float fBase = mix(fR, fS, Sx);
   float fNo = mix(fBase, fT, uB);
@@ -289,11 +287,12 @@ export default {
       update(t) {
         const ph = (TAU * t) / D;
         const S = easeInOutCubic(ramp(t, 2.3, 4.9));
-        const ret = ramp(t, D - 2.0, D);
+        const retStart = T.out[1] - 0.3;
+        const ret = easeInOutSine(ramp(t, retStart, D));
         const Bin = easeInOutCubic(ramp(t, 6.4, nameAt));
         const Bout = easeInOutSine(ramp(t, nameAt + 0.4, nameAt + 1.2));
         const B = Bin * (1 - Bout);
-        const dim = easeInOutSine(ramp(t, nameAt + 0.6, nameAt + 2.8)) * (1 - easeInOutSine(ramp(t, D - 1.3, D)));
+        const dim = easeInOutSine(ramp(t, nameAt + 0.6, nameAt + 2.8)) * (1 - easeInOutSine(ramp(t, retStart, D)));
         const fillIn = ramp(t, nameAt - 1.6, nameAt);
         const fill = fillIn * fillIn * (1 - ramp(t, nameAt + 0.3, nameAt + 1.15));
 
