@@ -39,7 +39,7 @@ export default {
     const [NX, NY, NZ] = low ? [19, 13, 9] : [30, 20, 13];
     const N = NX * NY * NZ;
     const LAYERS = low ? 2 : 3;
-    const TC0 = 5.7;                       // collapse starts
+    const TC0 = 5.7; const EXK = ctx.width < 700 ? 0.22 : 0.58;                       // collapse starts
 
     const renderer = createRenderer(ctx, { clearColor: 0x070b10 });
     const scene = new THREE.Scene();
@@ -56,7 +56,7 @@ export default {
     // ---------------------------------------------------------------- shared materials
     const uni = {
       uMorph: { value: 0 }, uExplode: { value: 0 }, uGap: { value: 0 }, uEdge: { value: 0 },
-      uFade: { value: 0 }, uBuild: { value: 1 }, uFront: { value: 0 }, uFrontAmp: { value: 0 },
+      uFade: { value: 0 }, uDebris: { value: 0 }, uBuild: { value: 1 }, uFront: { value: 0 }, uFrontAmp: { value: 0 },
       uCs: { value: 20 }, uSpan: { value: 100 }, uTime: { value: 0 }, uDim: { value: 1 },
     };
     const mat = new THREE.ShaderMaterial({
@@ -64,7 +64,7 @@ export default {
       vertexShader: /* glsl */`
         attribute vec3 aStart; attribute vec2 aTilt; attribute vec3 aTarget; attribute vec3 aAxis;
         attribute vec4 aRand; attribute vec3 aColor; attribute vec3 aInfo;
-        uniform float uMorph, uExplode, uGap, uFade, uBuild, uCs, uSpan, uTime, uFront, uFrontAmp;
+        uniform float uDebris, uMorph, uExplode, uGap, uFade, uBuild, uCs, uSpan, uTime, uFront, uFrontAmp;
         varying vec3 vN; varying vec3 vWPos; varying vec3 vLocal; varying vec3 vCol; varying float vE; varying float vGlow;
 
         vec3 rodrigues(vec3 v, vec3 k, float a) {
@@ -95,11 +95,13 @@ export default {
           float f = clamp(uFade * 1.6 - aRand.w * 0.6, 0.0, 1.0);
           f = f * f * (3.0 - 2.0 * f);
           size *= (1.0 - f);
+          size *= mix(1.0, 1.0 - uDebris, step(aInfo.z, 0.9));
           pos.z -= f * 30.0;
           // loop return: block re-grows from the bottom layer upward
           float b = clamp(uBuild * 1.7 - aInfo.x * 0.7, 0.0, 1.0);
           b = b * b * (3.0 - 2.0 * b);
           size *= b;
+          pos.z -= (1.0 - b) * (1.0 - b) * 500.0;
 
           // orientation: bed tilt (settles to zero) after a tumble about aAxis that also settles
           float ang = aRand.y * 6.2831853 * e;   // whole turns, so the cube lands axis-aligned
@@ -129,21 +131,22 @@ export default {
         void main() {
           vec3 n = normalize(vN);
           vec3 v = normalize(cameraPosition - vWPos);
-          vec3 L = normalize(vec3(-0.5, 0.85, 0.7));
+          vec3 L = normalize(vec3(-0.6, 0.85, 0.3));
           float diff = max(dot(n, L), 0.0);
           float hemi = n.y * 0.5 + 0.5;
           float fill = max(dot(n, normalize(vec3(0.7, 0.1, 0.6))), 0.0);
           float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-          vec3 col = vCol * (0.22 + 0.16 * hemi + 0.70 * diff + 0.18 * fill);
-          col += vec3(0.30, 0.62, 0.72) * rim * 0.26;
-          col += vec3(0.25, 0.75, 0.85) * vGlow * 0.55;
+          vec3 col = vCol * (0.10 + 0.10 * hemi + 1.15 * diff + 0.06 * fill);
+          col *= mix(1.0, 1.7, vE);
+          col += vec3(0.30, 0.62, 0.72) * rim * 0.22;
+          col += vec3(0.2, 0.6, 0.7) * vGlow * 0.4;
           // cube edges: pale hairlines on the grid, dark creases on the voxel letters
           vec3 q = abs(vLocal);
           float a = max(q.x, max(q.y, q.z)), c = min(q.x, min(q.y, q.z));
           float mid = q.x + q.y + q.z - a - c;
           float edgeF = smoothstep(0.43, 0.5, mid);
-          vec3 lineCol = mix(vec3(0.55, 0.82, 0.92), vec3(0.02, 0.05, 0.08), vE);
-          col = mix(col, lineCol, edgeF * uEdge * mix(0.7, 0.55, vE));
+          vec3 lineCol = mix(vec3(0.45, 0.72, 0.82), vec3(0.01, 0.03, 0.05), vE);
+          col = mix(col, lineCol, edgeF * uEdge * mix(0.6, 0.7, vE));
           col *= uDim;
           gl_FragColor = vec4(col, 1.0);
         }`,
@@ -156,8 +159,8 @@ export default {
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.9999, 1.0); }',
       fragmentShader: `varying vec2 vUv; uniform float uAsp;
         void main(){ vec2 p = (vUv - vec2(0.5, 0.52)) * vec2(uAsp, 1.0);
-          float d = length(p);
-          vec3 c = mix(vec3(0.050, 0.078, 0.108), vec3(0.012, 0.020, 0.030), smoothstep(0.0, 0.95, d));
+          float d = length(p + vec2(0.1, -0.12));
+          vec3 c = mix(vec3(0.030, 0.046, 0.064), vec3(0.005, 0.008, 0.012), smoothstep(0.0, 0.95, d));
           gl_FragColor = vec4(c, 1.0); }`,
     });
     const bg = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
@@ -166,8 +169,8 @@ export default {
 
     const ghostMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      uniforms: { uAlpha: { value: 0 } },
-      vertexShader: 'attribute vec3 color; varying vec3 vC; void main(){ vC = color; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      uniforms: { uAlpha: { value: 0 }, uBand: { value: new THREE.Vector2(0, 0.2) } },
+      vertexShader: 'uniform vec2 uBand; attribute vec3 color; varying vec3 vC; void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); float a = smoothstep(uBand.y, uBand.y + 0.3, abs(gl_Position.y / gl_Position.w - uBand.x)); vC = color * mix(0.12, 1.0, a); }',
       fragmentShader: 'uniform float uAlpha; varying vec3 vC; void main(){ gl_FragColor = vec4(vC * uAlpha, 1.0); }',
     });
 
@@ -185,7 +188,7 @@ export default {
       bgMat.uniforms.uAsp.value = w / h;
       const toWorld = pixelToPlane(camera, camZ, w, h, 0);
       const narrow = w < 700;
-      W = narrow ? w * 0.74 : Math.min(w * 0.5, h * 0.9);
+      W = narrow ? w * 0.8 : Math.min(w * 0.5, h * 0.9);
       cs = W / NX; A = 0.13 * W;
       const D = cs * NY;
       uni.uCs.value = cs;
@@ -235,7 +238,7 @@ export default {
         const dt = k / (NZ - 1), dm = domeF(u, v);
         const pn = Math.sin(u * 2.9 + k * 0.9 + 1.3) * Math.cos(v * 2.3 - k * 0.55);
         const phi = Math.min(1, Math.max(0, 0.5 + lay[k] + 0.2 * pn + (rand() - 0.5) * 0.07 + 0.08 * (dt - 0.5)));
-        const so = smoothstep(0.6, 0.95, dt) * smoothstep(0.3, 0.85, dm);
+        const so = Math.pow(dt, 4) * Math.pow(dm, 1.6) * 1.25;
         cellsR[n++] = { x: bx, y, z: -by, tx: sx, ty: sy, k, dt, phi, so, rnd: rand() };
       }
       // order by x so cells map to letters left-to-right (monotone, coherent flow)
@@ -273,20 +276,20 @@ export default {
       const aStart = new Float32Array(N * 3), aTilt = new Float32Array(N * 2), aTarget = new Float32Array(N * 3), aAxis = new Float32Array(N * 3);
       const aRandA = new Float32Array(N * 4), aColor = new Float32Array(N * 3), aInfo = new Float32Array(N * 3);
       const ramp3 = (p, o) => {
-        const A0 = [0.03, 0.10, 0.23], B0 = [0.08, 0.38, 0.47], C0 = [0.70, 0.92, 0.96];
-        p = Math.pow(p, 1.25);
+        const A0 = [0.018, 0.045, 0.11], B0 = [0.06, 0.25, 0.31], C0 = [0.56, 0.74, 0.78];
+        p = Math.pow(p, 1.9);
         const s = p < 0.5 ? p * 2 : (p - 0.5) * 2, a = p < 0.5 ? A0 : B0, b = p < 0.5 ? B0 : C0;
         for (let q = 0; q < 3; q++) o[q] = a[q] + (b[q] - a[q]) * s;
       };
-      const col = [0, 0, 0], amber = [0.86, 0.52, 0.15];
+      const col = [0, 0, 0], amber = [0.80, 0.47, 0.12];
       const WXmax = w * 0.5;
       for (let i = 0; i < N; i++) {
         const q = cellsR[i];
         aStart.set([q.x, q.y, q.z], i * 3);
         aTilt.set([Math.atan(q.ty), Math.atan(q.tx)], i * 2);
         ramp3(q.phi, col);
-        const am = smoothstep(0.3, 0.62, q.so);
-        for (let z = 0; z < 3; z++) col[z] += (amber[z] - col[z]) * am * 0.92;
+        const am = smoothstep(0.08, 0.85, q.so);
+        for (let z = 0; z < 3; z++) col[z] += (amber[z] - col[z]) * am * 0.88;
         const stripe = 0.9 + 0.1 * Math.sin(q.k * 2.1);
         aColor.set([col[0] * stripe, col[1] * stripe, col[2] * stripe], i * 3);
         let t = targets[tgtOf[i]];
@@ -353,6 +356,8 @@ export default {
       ghostGroup = new THREE.Group();
       ghostGroup.add(ghost);
       ghostGroup.position.set(0, 0, -(narrow ? 120 : 260));
+      { const y0 = L.baseline - L.capHeight, y1 = L.subtitle.top + 50;
+        ghostMat.uniforms.uBand.value.set(1 - (y0 + y1) / h, (y1 - y0) / h + 0.04); }
       const gs = narrow ? 1.1 : 1.45;
       ghostGroup.scale.setScalar(gs);
       scene.add(ghostGroup);
@@ -376,10 +381,10 @@ export default {
     function pose(t) {
       let az, el, dist;
       const azHold = AZ_S + 0.05 * TC0, elHold = EL_S + 0.012 * TC0;
-      if (t < TC0) { az = AZ_S + 0.05 * t; el = EL_S + 0.012 * t; dist = camZ * (0.98 + 0.58 * easeInOutCubic(ramp(t, 3.9, 5.4))); }
+      if (t < TC0) { az = AZ_S + 0.05 * t; el = EL_S + 0.012 * t; dist = camZ * (0.98 + EXK * easeInOutCubic(ramp(t, 3.9, 5.4))); }
       else if (t < out0) {
         const s = easeInOutCubic(ramp(t, TC0, nameAt));
-        az = lerp(azHold, 0, s); el = lerp(elHold, 0, s); dist = lerp(camZ * 1.56, camZ, s);
+        az = lerp(azHold, 0, s); el = lerp(elHold, 0, s); dist = lerp(camZ * (0.98 + EXK), camZ, s);
       } else {
         const s = easeInOutCubic(ramp(t, out0, dur));
         az = lerp(0, AZ_S, s); el = lerp(0, EL_S, s); dist = lerp(camZ, camZ * 0.98, s);
@@ -395,19 +400,20 @@ export default {
       update(t) {
         const inOut = t >= out0;
         uni.uTime.value = t;
-        uni.uEdge.value = easeInOutCubic(ramp(t, 2.5, 3.9)) * (1 - easeInOutCubic(ramp(t, out0, dur - 0.2)));
+        uni.uEdge.value = easeInOutCubic(ramp(t, 2.5, 3.9)) * (1 - easeInOutCubic(ramp(t, out0 + 0.8, dur - 0.1)));
         uni.uGap.value = inOut ? 0 : easeInOutCubic(ramp(t, 3.7, 5.1));
         uni.uExplode.value = inOut ? 0 : easeInOutCubic(ramp(t, 4.3, 5.6));
-        uni.uDim.value = inOut ? 0.4 + 0.6 * ramp(t, out0 + 0.4, dur) : 1;
+        uni.uDim.value = inOut ? 0.12 + 0.88 * ramp(t, out0 + 0.8, dur) : 1;
+        uni.uDebris.value = easeInOutCubic(ramp(t, nameAt - 1.5, nameAt - 0.3));
         uni.uMorph.value = inOut ? 0 : ramp(t, TC0, nameAt);
         uni.uFade.value = inOut ? 0 : ramp(t, nameAt + 0.3, split0 - 0.05);
-        uni.uBuild.value = inOut ? easeOutCubic(ramp(t, out0, dur - 0.15)) : 1;
+        uni.uBuild.value = inOut ? easeInOutCubic(ramp(t, out0 + 0.8, dur)) : 1;
         // fluid front sweeping through the intact block
         const fw = ramp(t, 0.4, 4.6);
         uni.uFront.value = lerp(-W * 0.7, W * 0.7, fw);
         uni.uFrontAmp.value = smoothstep(0.0, 0.12, fw) * (1 - smoothstep(0.82, 1.0, fw)) * (1 - ramp(t, 3.4, 4.6)) * 0.4;
-        ghostMat.uniforms.uAlpha.value = 0.13 * smoothstep(nameAt + 0.8, split0 + 1.2, t) * (1 - smoothstep(out0, out0 + 0.8, t));
-        ghostGroup.rotation.y = 0.5 + (t - nameAt) * 0.075;
+        ghostMat.uniforms.uAlpha.value = 0.05 * smoothstep(nameAt + 0.8, split0 + 1.2, t) * (1 - smoothstep(out0, out0 + 0.8, t));
+        ghostGroup.rotation.y = 0.5 + (t - nameAt) * 0.04;
         ghostGroup.rotation.x = 0.1;
         pose(t);
         if (composer) composer.render(); else renderer.render(scene, camera);

@@ -275,27 +275,29 @@ export default {
 
       const r = rng(11);
       const gauss = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) * 1.73; };
-      // layered porosity model
-      const L = 16, base = [];
-      for (let l = 0; l < L; l++) base.push(clamp(0.5 + 0.3 * Math.sin(l * 0.85 + 1.0) + (r() - 0.5) * 0.5 + ((l === 5 || l === 11) ? 0.3 : 0), 0.0, 1));
+      // layered porosity model: alternating shale / sand, anticline fold
+      const TH = [0.07, 0.10, 0.06, 0.12, 0.08, 0.13, 0.07, 0.11, 0.09, 0.08, 0.09];
+      const PHI = [0.25, 0.55, 0.12, 0.9, 0.2, 0.7, 0.08, 0.98, 0.3, 0.6, 0.15];
+      const BND = [0]; TH.forEach((t0) => BND.push(BND[BND.length - 1] + t0));
+      const layerOf = (d) => { for (let l = 0; l < TH.length; l++) if (d < BND[l + 1]) return l; return TH.length - 1; };
+      const foldF = (u, d) => 0.05 - 0.10 * (1 - (2 * u - 1) ** 2) * (1 - 0.6 * d) + 0.012 * Math.sin(u * 9 + d * 4);
+      const phiAt = (u, d) => clamp(PHI[layerOf(d)] + 0.12 * (u - 0.5) * (1 - d), 0, 1);
+      G.phiAt = phiAt; G.foldF = foldF;
       const S = new Float32Array(N * 2), C = new Float32Array(N * 3), Tg = new Float32Array(N * 2), Meta = new Float32Array(N * 4), W = new Float32Array(N * 2);
       const prop = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         let u, d, f, tries = 0;
-        do { u = r(); d = r(); f = (d * L) % 1; tries++; } while ((f < 0.12 || f > 0.88) && tries < 10);
-        const fold = 0.07 * Math.sin(u * 5.5 + d * 3.0) + 0.06 * (u - 0.5);
-        const yy = sec.y0 + (d + fold * 0.9) * (sec.y1 - sec.y0);
+        do { u = r(); d = r(); const l = layerOf(d); f = (d - BND[l]) / TH[l]; tries++; } while ((f < 0.1 || f > 0.9) && tries < 10);
         S[i * 2] = sec.x0 + u * (sec.x1 - sec.x0);
-        S[i * 2 + 1] = yy;
-        const l = Math.min(L - 1, Math.floor(d * L));
-        prop[i] = clamp(base[l] + 0.18 * (u - 0.5) * (1 - d) + gauss() * 0.03, 0, 1);
+        S[i * 2 + 1] = sec.y0 + (d + foldF(u, d)) * (sec.y1 - sec.y0);
+        prop[i] = clamp(phiAt(u, d) + gauss() * 0.04, 0, 1);
         Meta[i * 4] = r();
         Meta[i * 4 + 1] = prop[i];
       }
       // clusters = equal-count porosity classes (latent space groups similar rock)
       const order = Array.from({ length: N }, (_, i) => i).sort((a, b) => prop[a] - prop[b]);
       const cl = new Int32Array(N);
-      order.forEach((idx, rank) => { cl[idx] = Math.min(NCL - 1, Math.floor((rank / N) * NCL)); Meta[idx * 4 + 2] = cl[idx]; Meta[idx * 4 + 1] = 0.04 + 0.92 * (rank / N); });
+      order.forEach((idx, rank) => { cl[idx] = Math.min(NCL - 1, Math.floor((rank / N) * NCL)); Meta[idx * 4 + 2] = cl[idx]; });
       const ang = [0.4, -0.6, 0.9, -0.2, 0.7, -0.9, 0.1];
       for (let i = 0; i < N; i++) {
         const k = cl[i], wide = r() < 0.06 ? 2.4 : 1;
@@ -303,6 +305,12 @@ export default {
         const ca = Math.cos(ang[k]), sa = Math.sin(ang[k]);
         const nx = CLUSTER_C[k][0] + a * ca - b * sa, ny = CLUSTER_C[k][1] + a * sa + b * ca;
         C[i * 3] = emb.cx + nx * emb.sx; C[i * 3 + 1] = emb.cy + ny * emb.sy; C[i * 3 + 2] = gauss() * 120 + (k - 3) * 28;
+      }
+      {
+        const xs = Array.from({ length: N }, (_, i) => C[i * 3]).sort((p, q) => p - q);
+        const p5 = xs[Math.floor(N * 0.04)], p95 = xs[Math.floor(N * 0.96)];
+        const mid = (p5 + p95) / 2, half = (p95 - p5) / 2, sc = Math.min(1, (w * (narrow ? 0.38 : 0.44)) / half);
+        for (let i = 0; i < N; i++) C[i * 3] = emb.cx + (C[i * 3] - mid) * sc;
       }
       // targets: x-sorted slabs matched to clusters in x-order of their centres
       const pool = sampleName(ctx.layout, low ? 16000 : 36000, { mode: 'mix', seed: 7 });
@@ -472,6 +480,20 @@ export default {
         o2.fillText('depth (m)', x0 - (narrow ? 4 : 2), y0 - 8 - (narrow ? 14 : 0));
         o2.textAlign = 'right';
         o2.fillText('x (m)', x1, y1 + 6 + fs * 2 + 6);
+        // well-log traces
+        const nw = G.narrow ? 2 : 3, cw = G.narrow ? 22 : 36;
+        for (let wi = 0; wi < nw; wi++) {
+          const uw = nw === 3 ? [0.17, 0.5, 0.83][wi] : [0.25, 0.75][wi];
+          const xw = sec.x0 + uw * (sec.x1 - sec.x0);
+          o2.strokeStyle = ink(0.28 * inSec); o2.beginPath(); o2.moveTo(xw, sec.y0 - 14); o2.lineTo(xw, sec.y1 + 4); o2.stroke();
+          o2.strokeStyle = ink(0.8 * inSec); o2.lineWidth = 1.1; o2.beginPath();
+          for (let q = 0; q <= 120; q++) {
+            const dd = q / 120, yy = sec.y0 + (dd + G.foldF(uw, dd)) * (sec.y1 - sec.y0), xx = xw + 3 + G.phiAt(uw, Math.min(0.999, dd)) * cw;
+            q ? o2.lineTo(xx, yy) : o2.moveTo(xx, yy);
+          }
+          o2.stroke(); o2.lineWidth = 1;
+          o2.fillStyle = ink(0.5 * inSec); o2.textAlign = 'center'; o2.fillText('W-' + (wi + 1), xw, sec.y0 - 18);
+        }
         // colour key for porosity
         const bw = narrow ? 70 : 96, bx = narrow ? x0 + 30 : x1 - bw, by = narrow ? y1 + 6 + fs * 2 + 22 : y0 - 18;
         for (let i = 0; i < bw; i += 2) { const c = rampJS(i / bw); o2.fillStyle = `rgba(${c[0] * 255 | 0},${c[1] * 255 | 0},${c[2] * 255 | 0},${0.8 * inSec * ovl})`; o2.fillRect(bx + i, by, 2, 3); }
@@ -528,21 +550,22 @@ export default {
       stats,
       update(t) {
         const nu = nodeMat.uniforms;
-        const secUp = easeInOutCubic(ramp(t, 2.3, 4.5)), secDn = easeInOutCubic(ramp(t, OUT + 0.15, D - 0.3));
+        const secUp = easeInOutCubic(ramp(t, 2.3, 4.5)), secDn = easeInOutCubic(ramp(t, OUT + 0.9, D - 0.12));
         const secP = secUp * (1 - secDn);
         const convUp = easeInOutCubic(ramp(t, 6.4, na)), convDn = easeInOutCubic(ramp(t, na + 0.6, na + 2.7));
         const convP = convUp * (1 - convDn);
-        const readEnv = smooth(t, na + 0.4, na + 1.4) * (1 - smooth(t, OUT + 0.2, D - 0.3));
-        const tint = smooth(t, 4.6, 6.0) * (1 - smooth(t, OUT, OUT + 1.2));
+        const readEnv = smooth(t, na + 0.4, na + 1.4) * (1 - smooth(t, OUT + 0.9, D - 0.12));
+        const tint = smooth(t, 4.6, 6.0) * (1 - smooth(t, OUT + 0.9, D - 0.12));
+        const dip = smooth(t, na + 0.4, na + 1.0) * (1 - smooth(t, na + 2.4, na + 3.4));
 
         shared.uSec.value = secP; shared.uConv.value = convP;
         shared.uCyc.value = t / D;
-        shared.uYaw.value = 0.5 * Math.sin(TAU * t / D) * (1 - 0.0);
+        shared.uYaw.value = (G.narrow ? 0.3 : 0.5) * Math.sin(TAU * t / D) * (1 - 0.0);
         shared.uTint.value = tint;
         shared.uWhite.value = smooth(convP, 0.55, 1.0);
         shared.uDensity.value = 1 - 0.62 * readEnv;
 
-        nu.uAlpha.value = 1.0 - 0.66 * readEnv;
+        nu.uAlpha.value = (1.0 - 0.66 * readEnv) * (1 - dip);
         // scan cursor through the section at the start
         const sc = ramp(t, 0.35, 2.15);
         nu.uScanOn.value = Math.sin(Math.PI * sc) * (sc > 0 && sc < 1 ? 1 : 0) * 0.9;
@@ -551,17 +574,17 @@ export default {
         const rateC = (maxDC + 1) / 1.6, perC = maxDC + 5;
         const tpC = t - 4.9;
         nu.uPulseC.value = tpC > 0 ? (tpC * rateC) % perC : -99;
-        const gC = smooth(t, 4.9, 5.4) * (1 - smooth(convP, 0.0, 0.5)) + 0.12 * readEnv * (1 - smooth(t, OUT, OUT + 0.5));
+        const gC = smooth(t, 4.9, 5.4) * (1 - smooth(t, 6.4, 7.2));
         nu.uGainC.value = gC;
         // final cascade across the letters
         const rateT = (G.maxDT + 1) / 1.5;
         const tpT = t - (na - 1.0);
         nu.uPulseT.value = tpT > 0 && tpT < 2.2 ? tpT * rateT - 10 : -99;
-        nu.uGainT.value = smooth(t, na - 1.0, na - 0.6) * (1 - smooth(t, na + 0.5, na + 1.1)) * 0.9;
+        nu.uGainT.value = smooth(t, na - 1.0, na - 0.6) * (1 - smooth(t, na - 0.2, na + 0.4)) * 0.9;
 
         const [ec, et] = edgeSets;
         ec.mat.uniforms.uGrow.value = ramp(t, 3.9, 5.6);
-        ec.mat.uniforms.uAlpha.value = (G.narrow ? 0.34 : 0.3) * smooth(t, 3.9, 4.4) * (1 - smooth(convP, 0.0, 0.4)) * (1 - 0.45 * readEnv) * (1 - smooth(t, OUT, OUT + 1.1));
+        ec.mat.uniforms.uAlpha.value = (G.narrow ? 0.34 : 0.3) * smooth(t, 3.9, 4.4) * (1 - smooth(convP, 0.0, 0.4)) * (1 - 0.55 * readEnv) * (1 - dip) * (1 - smooth(t, OUT + 0.9, OUT + 1.3) * 0) ;
         ec.mat.uniforms.uPulse.value = nu.uPulseC.value;
         ec.mat.uniforms.uGain.value = gC;
         ec.mat.uniforms.uPulseVis.value = 2.2;
@@ -576,7 +599,7 @@ export default {
         et.mesh.visible = et.mat.uniforms.uAlpha.value > 0.001 || nu.uGainT.value > 0.001;
         // edge sets share cluster tint/white uniforms through `shared`
 
-        drawFigure(t, t < 12 ? 1 - smooth(t, na - 1.3, na - 0.4) : smooth(t, OUT + 0.5, D - 0.25), secP, convP);
+        drawFigure(t, t < 12 ? 1 - smooth(t, na - 1.3, na - 0.4) : smooth(t, OUT + 1.1, D - 0.1), secP, convP);
         renderer.render(scene, camera);
       },
       resize(c) {

@@ -111,10 +111,10 @@ function hermiteKeys(keys, t, ch) {
 
 // camera: t, azimuth (deg), elevation (deg), distance, target y
 const CAM_KEYS = [
-  [0.0, 41, 25, 23.5, -0.1],
-  [2.7, 33, 21, 21.2, 0.2],
-  [5.5, 23, 31, 21.6, -0.2],
-  [8.4, 12, 17, 22.2, 0.0],
+  [0.0, 40, 24, 19.5, -0.1],
+  [2.7, 33, 20, 17.2, 0.25],
+  [5.5, 24, 30, 17.8, -0.2],
+  [8.4, 12, 16, 19.2, 0.0],
   [NAME_AT - 0.12, 0, 0, CAM_Z, 0],
 ];
 
@@ -171,7 +171,8 @@ export default {
       uLoose: { value: 0 }, uMorph: { value: 0 }, uDisperse: { value: 0 }, uDrift: { value: 0 },
     };
     const shared = (extra) => Object.assign({}, U, extra);
-    const additive = { transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending };
+    // premultiplied additive: every shader writes (rgb * a, a)
+    const additive = { transparent: true, depthWrite: false, depthTest: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor };
 
     // ---------- background (very subtle radial falloff) ----------
     const bgMat = new THREE.ShaderMaterial({
@@ -422,9 +423,9 @@ export default {
         uniform float uT; varying float vA; varying float vS; varying float vPulse;
         void main() {
           float ph = fract(uT * 0.55 + vPulse * 7.0);
-          float pulse = step(vPulse, 0.32) * exp(-pow((vS - ph) / 0.07, 2.0));
-          float a = vA * (0.26 + pulse * 1.4);
-          vec3 c = vec3(0.36, 0.78, 1.0) * vA * 0.26 + vec3(0.95, 0.68, 0.30) * vA * pulse * 1.4;
+          float pulse = step(vPulse, 0.12) * exp(-pow((vS - ph) / 0.05, 2.0));
+          float a = vA * (0.22 + pulse * 0.8);
+          vec3 c = vec3(0.36, 0.78, 1.0) * vA * 0.22 + vec3(0.95, 0.68, 0.30) * vA * pulse * 0.8;
           gl_FragColor = vec4(c, a);
         }`,
     });

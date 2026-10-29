@@ -95,6 +95,7 @@ const POINTS_VS = /* glsl */`
     a = mix(a, 0.8, nameness);
     a *= 1.0 + uLoose * formness * (1.2 * pulse + 2.4 * packet * pulse);
     a *= mix(1.0, 0.42, f);
+    a *= 1.0 + 1.6 * smoothstep(0.55, 0.9, f) * (1.0 - formness) * (1.0 - nameness);
     a *= mix(1.0, edgeOf(aA), formness);
     a *= uGate;
 
