@@ -44,7 +44,7 @@ const COMMON = /* glsl */`
 
 const POINTS_VS = /* glsl */`
   attribute vec4 aA; attribute vec4 aB; attribute vec3 aFloat; attribute vec3 aName;
-  uniform float uPhase, uForm, uConv, uRel, uDpr, uSize, uCamDist, uGate, uTop, uReadMask;
+  uniform float uPhase, uForm, uConv, uRel, uDpr, uSize, uCamDist, uGate, uTop, uReadMask, uDens;
   uniform vec2 uRes; uniform vec4 uBox;
   varying float vAlpha; varying vec3 vCol; varying float vSoft;
   ${COMMON}
@@ -91,7 +91,7 @@ const POINTS_VS = /* glsl */`
     vec2 q = aFloat.xy / (uVisH * 0.55);
     float foc = 0.35 + 0.65 * exp(-dot(q, q) * 0.9);
     float packet = step(0.97, seed);
-    float a = mix((0.22 + 0.42 * aB.w * aB.w) * foc, 0.88 * band, formness);
+    float a = mix((0.22 + 0.42 * aB.w * aB.w) * foc * uDens, 0.88 * band, formness);
     a = mix(a, 0.8, nameness);
     a *= 1.0 + uLoose * formness * (1.2 * pulse + 2.4 * packet * pulse);
     a *= mix(1.0, 0.42, f);
@@ -296,7 +296,7 @@ export default {
       uForm: { value: 0 }, uConv: { value: 0 }, uRel: { value: 0 }, uGate: { value: 1 },
       uFlow: { value: 0 }, uLoose: { value: 0 }, uCamDist: { value: CAM_Z },
       uFW: { value: 1 }, uFD: { value: 1 }, uTH: { value: 1 }, uA: { value: 1 }, uY0: { value: 0 },
-      uSlope: { value: 0 }, uVisH: { value: 1 }, uReadMask: { value: 0 },
+      uSlope: { value: 0 }, uVisH: { value: 1 }, uReadMask: { value: 0 }, uDens: { value: 1 },
       uRes: { value: new THREE.Vector2(1, 1) }, uBox: { value: new THREE.Vector4(0, 0, 1, 1) },
     };
     const own = (extra) => Object.assign({}, U, extra);
@@ -362,6 +362,7 @@ export default {
       U.uY0.value = D.y0; U.uSlope.value = D.slope; U.uVisH.value = D.visH;
       camera.aspect = W / H; camera.updateProjectionMatrix();
       bgMat.uniforms.uAspect.value = W / H;
+      U.uDens.value = W < 700 ? 0.5 : 1;
       { const b = c.layout.fullBox; U.uRes.value.set(W, H); U.uBox.value.set(b.x - 30, b.y - 30, b.x + b.w + 30, c.layout.subtitle.top + 90); }
       U.uDpr.value = tMat.uniforms.uDpr.value = renderer.getPixelRatio();
 
@@ -546,9 +547,9 @@ export default {
         const dim = 0.34;
         U.uGate.value = (1 - sm(nameAt + 0.3, nameAt + 1.0, t))
           + dim * sm(nameAt + 2.4, nameAt + 4.6, t)
-          + (1 - dim) * sm(T.out[0], T.duration, t);
+          + (1 - dim) * sm(T.out[1] - 0.3, T.duration, t);
 
-        U.uReadMask.value = sm(nameAt + 1.4, nameAt + 3.0, t) * (1 - sm(T.duration - 1.0, T.duration, t));
+        U.uReadMask.value = sm(nameAt + 1.4, nameAt + 3.0, t) * (1 - sm(T.out[1] - 0.3, T.duration - 0.1, t));
         // structure layers
         const fade = (1 - 0.6 * sm(5.2, 6.2, t)) * (1 - sm(6.8, 7.8, t));
         cMat.uniforms.uDraw.value = ramp(t, 3.5, 5.7);

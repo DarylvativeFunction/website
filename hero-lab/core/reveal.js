@@ -19,8 +19,8 @@ export function revealTiming(nameAt, duration) {
     split: [nameAt + 1.25, nameAt + 2.3],     // Daryl <- -> Tan
     yijin: [nameAt + 1.75, nameAt + 2.75],    // Yi Jin opens between them
     subtitle: [nameAt + 2.55, nameAt + 3.45],
-    read: [nameAt + 3.45, duration - 1.7],
-    out: [duration - 1.7, duration - 0.35],   // name dissolves; prototype returns to its t=0 state
+    read: [nameAt + 3.45, duration - 2.0],
+    out: [duration - 2.0, duration - 1.05],   // name dissolves; the last ~1 s belongs to the scene returning to t=0
     duration,
   };
 }

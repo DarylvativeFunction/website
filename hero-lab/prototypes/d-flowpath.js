@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { EffectComposer, RenderPass, UnrealBloomPass, OutputPass } from 'three/addons';
-import { createRenderer, pixelOrthoCamera, ramp, easeInOutCubic, clamp, rng } from '../core/stage.js';
+import { createRenderer, pixelOrthoCamera, ramp, easeInOutCubic, easeInOutSine, clamp, rng } from '../core/stage.js';
 import { rasterizeName, traceContours } from '../core/text.js';
 
 const K = 40;            // vertices per comet trail
@@ -29,7 +29,7 @@ function makeWells(w, h) {
 function buildStreams(w, h, count, rand) {
   const { inj, prod, portrait } = makeWells(w, h);
   const wells = [...inj.map((p) => [p[0], p[1], 1]), ...prod.map((p) => [p[0], p[1], -1.15])];
-  wells[4][2] = 0.5; wells[9][2] = -0.6;
+  wells[4][2] = 0.22; wells[9][2] = -0.27;
   const Lref = Math.max(w, h);
   const U = portrait ? [0, 1.1 / Lref] : [1.1 / Lref, 0];
   const vel = (x, y, out) => {
@@ -216,7 +216,7 @@ function buildGlyphPaths(layout, quality, rand) {
 
 const VERT = /* glsl */ `
   uniform sampler2D uS; uniform sampler2D uG;
-  uniform float uPS, uPG, uPh, uMup, uMdn, uLen, uStreamA, uGlyphA, uPulse, uGlob;
+  uniform float uPS, uPG, uPh, uMup, uMdn, uLen, uStreamA, uGlyphA, uPulse, uGlob, uW, uH, uBandY, uBandH, uBandAmt;
   attribute vec4 aA;   // u, rowS, rowG, seed
   attribute vec4 aB;   // offset, lenFrac, amp, cycles
   attribute vec4 aC;   // tint, win0, winSpan, streamAmp
@@ -232,27 +232,34 @@ const VERT = /* glsl */ `
   float ease(float x) { x = clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
   void main() {
     float u = aA.x, seed = aA.w;
-    float up = seed < 0.0 ? 0.0 : ease((uMup - seed * 0.42) / 0.58);
+    float up = seed < 0.0 ? 0.0 : ease((uMup - seed * 0.62) / 0.38);
     float dn = seed < 0.0 ? 0.0 : ease((uMdn - (1.0 - seed) * 0.45) / 0.55);
     float m = up * (1.0 - dn);
-    float settle = smoothstep(0.62, 1.0, m);
-    float L0 = max(aB.y * 2.6, 0.4);
+    float settle = smoothstep(0.35, 0.95, m);
+    float L0 = seed < 0.0 ? max(aB.y * 2.6, 0.4) : max(aB.y * 1.6, 0.25);
     float L = mix(mix(aB.y, L0, uLen), 1.0, m);
     float ph = fract(aB.w * uPh + aB.x);
     float head = mix(ph * (1.0 + L), 1.0, settle);
     float s = head - L * u;
     float sc = clamp(s, 0.0, 1.0);
-    float mv = smoothstep(0.0, 1.0, m * 1.55 - 0.55 * (1.0 - sc));
+    float mq = clamp(m * 1.7, 0.0, 1.0);
+    float mv = smoothstep(0.0, 1.0, mq * 1.55 - 0.55 * (1.0 - sc));
     float sS = mix(s, aC.y + sc * aC.z, mv);
     vec2 Sp = fetchP(uS, uPS, aA.y, sS);
     vec2 Gp = fetchP(uG, uPG, aA.z, s);
-    vec2 p = mix(Sp, Gp, mv);
+    // sweep along a long arc that crosses the centre: control point offset towards the opposite side
+    float side = sign(Gp.x - uW * 0.5 + 0.001);
+    vec2 C = 0.5 * (Sp + Gp) + vec2(-side * uW * 0.2, (seed - 0.5) * uH * 0.55) * (seed < 0.0 ? 0.0 : 1.0);
+    float q = 1.0 - mv;
+    vec2 p = q * q * Sp + 2.0 * q * mv * C + mv * mv * Gp;
     float fall = mix(pow(1.0 - u, 1.65), 1.0, settle);
     float edge = smoothstep(0.0, 0.025, s) * (1.0 - smoothstep(0.975, 1.0, s));
     edge = mix(edge, 1.0, settle);
-    float hd = smoothstep(0.1, 0.0, u) * (1.0 - settle);
-    float amb = seed < 0.0 ? (1.0 - 0.9 * uGlob) : 1.0;
-    float A = mix(uStreamA * aC.w, uGlyphA * aB.z * uPulse, m) * fall * edge * (1.0 + 1.4 * hd) * amb;
+    float hd = smoothstep(0.1, 0.0, u) * (1.0 - smoothstep(0.85, 1.0, m));
+    float amb = seed < 0.0 ? (1.0 - 0.95 * smoothstep(0.0, 0.8, uGlob)) : 1.0;
+    float mA = smoothstep(0.0, 0.3, m);
+    float A = mix(uStreamA * aC.w, uGlyphA * aB.z * uPulse * (1.0 + 0.5 * sin(3.14159 * clamp(m, 0.0, 1.0))), mA) * fall * edge * (1.0 + 1.6 * hd) * amb;
+    A *= 1.0 - uBandAmt * (1.0 - uGlob) * (1.0 - smoothstep(uBandH, uBandH * 1.7, abs(p.y - uBandY)));
     vec3 cool = vec3(0.56, 0.84, 1.0), amber = vec3(1.0, 0.6, 0.22);
     vec3 col = mix(cool, amber, aC.x);
     col = mix(col, vec3(1.0), 0.55 * hd + 0.3 * settle * (1.0 - aC.x));
@@ -265,7 +272,7 @@ const FRAG = /* glsl */ `
   void main() { gl_FragColor = vCol; }`;
 
 const FIELD_VERT = /* glsl */ `
-  uniform sampler2D uS; uniform float uPS, uPh, uFieldA;
+  uniform sampler2D uS; uniform float uPS, uPh, uFieldA, uBandY, uBandH, uBandAmt, uGlob;
   attribute vec2 aF;   // u, rowS
   varying vec4 vCol;
   void main() {
@@ -277,7 +284,7 @@ const FIELD_VERT = /* glsl */ `
     vec2 p = mix(a, b, fr);
     float env = smoothstep(0.0, 0.08, u) * (1.0 - smoothstep(0.92, 1.0, u));
     float sh = 0.55 + 0.45 * sin(u * 31.0 + aF.y * 1.7 - 6.2831853 * 2.0 * uPh);
-    vCol = vec4(0.5, 0.78, 1.0, uFieldA * env * sh);
+    vCol = vec4(0.5, 0.78, 1.0, uFieldA * env * sh * (1.0 - uBandAmt * (1.0 - smoothstep(uBandH, uBandH * 1.7, abs(p.y - uBandY)))));
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 0.0, 1.0);
   }`;
 
@@ -335,7 +342,7 @@ export default {
       uS: { value: null }, uG: { value: null }, uPS: { value: PS }, uPG: { value: PG },
       uPh: { value: 0 }, uMup: { value: 0 }, uMdn: { value: 0 }, uLen: { value: 0 },
       uStreamA: { value: 1 }, uGlyphA: { value: 1 }, uPulse: { value: 1 },
-      uFieldA: { value: 0.1 }, uGlob: { value: 0 },
+      uFieldA: { value: 0.1 }, uGlob: { value: 0 }, uW: { value: 1 }, uH: { value: 1 }, uBandY: { value: 0 }, uBandH: { value: 1 }, uBandAmt: { value: 0 },
     };
     const ringU = { uA: { value: 0.4 } };
 
@@ -380,12 +387,16 @@ export default {
       count = gp.length;
       const gData = new Float32Array(count * PG * 4);
       const load = new Uint16Array(nS);
+      uniforms.uW.value = w; uniforms.uH.value = h;
+      { const L = ctx.layout; const top = L.shortBox.y - L.fontSize * 0.25, bot = L.subtitle.top + L.fontSize * 0.7; uniforms.uBandY.value = (top + bot) / 2; uniforms.uBandH.value = (bot - top) / 2; }
+      const gcx = new Float32Array(count);
       const asg = new Int32Array(count), asgJ = new Int32Array(count), flip = new Uint8Array(count);
       for (let g = 0; g < count; g++) {
         const pts = gp[g].pts;
         let cx = 0, cy = 0;
         for (let k = 0; k < PG; k++) { cx += pts[k * 2]; cy += pts[k * 2 + 1]; }
         cx /= PG; cy /= PG;
+        gcx[g] = clamp((cx - ctx.layout.shortBox.x) / ctx.layout.shortBox.w);
         let best = 1e18, bs = 0, bj = 0;
         for (let si = 0; si < nS; si++) {
           let d2 = 1e18, jj = 0;
@@ -426,7 +437,7 @@ export default {
         const isAmb = g >= count;
         const sr = isAmb ? (g - count) % nS : asg[g];
         const outline = isAmb ? false : gp[g].kind === 0;
-        const seed = isAmb ? -1 : rand();
+        const seed = isAmb ? -1 : clamp(gcx[g] * 0.8 + rand() * 0.2, 0, 1);
         const len = sLen[sr];
         const lenPx = 150 + rand() * 300;
         const lenFrac = Math.min(0.5, (isAmb ? lenPx * 1.3 : lenPx) / len);
@@ -434,7 +445,7 @@ export default {
         const off = (inStream[sr]++ * 0.37 + rand() * 0.25) % 1;
         const amp = outline ? 1.0 : 0.62;
         const tint = rand() < (outline ? 0.14 : 0.1) ? 1 : 0;
-        const sAmp = isAmb ? 0.35 + rand() * 0.65 : 0.1 + rand() * 0.22;
+        const sAmp = isAmb ? 0.18 + Math.pow(rand(), 2.2) * 0.95 : 0.08 + rand() * 0.16;
         const span = 0.2;
         const win0 = isAmb ? 0 : clamp(asgJ[g] / (PS - 1) - span / 2, 0, 1 - span);
         for (let k = 0; k < kv; k++) {
@@ -506,23 +517,25 @@ export default {
         const e = easeInOutCubic;
         const out0 = T.out[0];
         uniforms.uPh.value = t / dur;
-        const lenAmt = e(ramp(t, 2.7, 5.2)) * (1 - e(ramp(t, out0 + 0.2, dur - 0.1)));
+        const lenAmt = e(ramp(t, 2.7, 5.2)) * (1 - e(ramp(t, T.out[1] - 0.3, dur - 0.1)));
         uniforms.uLen.value = lenAmt;
-        uniforms.uMup.value = e(ramp(t, 4.9, 8.7));
+        uniforms.uMup.value = (() => { const x = ramp(t, 5.4, 8.75); return x * 0.8 + 0.2 * easeInOutSine(x); })();
         uniforms.uMdn.value = e(ramp(t, N + 0.5, N + 2.5));
         // glyph material fades while the HTML name takes over
         const glyphFade = 1 - e(ramp(t, N + 0.55, N + 1.2));
         uniforms.uGlyphA.value = (0.9 + 0.1 * ramp(t, 8.3, 9.0)) * glyphFade;
         uniforms.uPulse.value = 1 + 0.06 * Math.sin((t / dur) * Math.PI * 2 * 9);
         // stream brightness: full in the opening, dim for the read phase
-        const dim = e(ramp(t, N + 1.0, N + 3.3));
-        const back = e(ramp(t, out0, dur - 0.3));
-        const streamA = 0.55 - (0.55 - 0.12) * dim * (1 - back);
+        const dim = e(ramp(t, N + 0.7, N + 2.2));
+        const back = e(ramp(t, T.out[1] - 0.3, dur - 0.15));
+        const rd = 1 - 0.7 * dim * (1 - back);
+        uniforms.uBandAmt.value = 0.75 * dim * (1 - back);
+        const streamA = 0.44 * rd;
         uniforms.uStreamA.value = streamA;
         const glob = uniforms.uMup.value * (1 - uniforms.uMdn.value);
         uniforms.uGlob.value = glob;
-        uniforms.uFieldA.value = 0.075 * (1 - 0.92 * glob) * (1 - 0.55 * dim * (1 - back));
-        ringU.uA.value = 0.5 * (1 - 0.95 * glob) * (1 - 0.6 * dim * (1 - back));
+        uniforms.uFieldA.value = 0.06 * (1 - 0.92 * glob) * rd;
+        ringU.uA.value = 0.45 * (1 - 0.95 * glob) * rd;
         if (composer) composer.render(); else renderer.render(scene, camera);
       },
       resize(c) {

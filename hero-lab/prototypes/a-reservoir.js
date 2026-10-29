@@ -49,6 +49,15 @@ const GLSL_GEO = /* glsl */`
   float und(vec2 p, float k) { return 0.09 * sin(0.62 * p.x + 0.38 * p.y + 1.7 * k) + 0.05 * sin(1.35 * p.y - 0.45 * p.x + 0.9 * k); }
   float resTop(vec2 p) { return 0.02 + 0.98 * dome(p) + und(p, 2.0); }
   float resBase(vec2 p) { return -0.78 + 0.80 * dome(p) + 0.8 * und(p, 3.0); }
+  uniform vec3 uCamL; // camera position in block space
+  // fade geometry lying on a vertical face of the block when that face is seen edge-on
+  float faceFade(vec3 p) {
+    vec3 v = normalize(uCamL - p);
+    float f = 1.0;
+    if (abs(abs(p.x) - uHalf.x) < 1e-3) f = min(f, smoothstep(0.06, 0.3, abs(v.x)));
+    if (abs(abs(p.z) - uHalf.y) < 1e-3) f = min(f, smoothstep(0.06, 0.3, abs(v.z)));
+    return f;
+  }
 `;
 
 const GLSL_FOG = /* glsl */`
@@ -111,10 +120,10 @@ function hermiteKeys(keys, t, ch) {
 
 // camera: t, azimuth (deg), elevation (deg), distance, target y
 const CAM_KEYS = [
-  [0.0, 40, 24, 19.5, -0.1],
-  [2.7, 33, 20, 17.2, 0.25],
-  [5.5, 24, 30, 17.8, -0.2],
-  [8.4, 12, 16, 19.2, 0.0],
+  [0.0, 38, 22, 20.5, -0.6],
+  [2.7, 32, 19, 18.6, -0.3],
+  [5.5, 22, 28, 19.0, -0.5],
+  [8.4, 11, 15, 19.6, -0.2],
   [NAME_AT - 0.12, 0, 0, CAM_Z, 0],
 ];
 
@@ -168,6 +177,7 @@ export default {
       uDome: { value: new THREE.Vector2(3.3, 2.5) },
       uFogNear: { value: 18 }, uFogFar: { value: 30 },
       uT: { value: 0 }, uDpr: { value: dpr }, uCamZ: { value: CAM_Z }, uS: { value: 1 },
+      uCamL: { value: new THREE.Vector3(0, 0, CAM_Z) },
       uLoose: { value: 0 }, uMorph: { value: 0 }, uDisperse: { value: 0 }, uDrift: { value: 0 },
     };
     const shared = (extra) => Object.assign({}, U, extra);
@@ -197,10 +207,10 @@ export default {
     // ---------- materials ----------
     const strataMat = new THREE.ShaderMaterial({
       ...additive,
-      uniforms: shared({ uScan: { value: -1 }, uAlpha: { value: 1 }, uSnap: { value: 0 }, uPx: { value: 1.7 } }),
+      uniforms: shared({ uScan: { value: -1 }, uAlpha: { value: 1 }, uSnap: { value: 0 }, uPx: { value: 1.7 }, uGlint: { value: -1 }, uGlintA: { value: 0 } }),
       vertexShader: `
         attribute vec3 aCol; attribute vec3 aCell; attribute vec2 aSeed;
-        uniform float uScan, uAlpha, uSnap, uPx, uDpr, uCamZ, uS;
+        uniform float uScan, uAlpha, uSnap, uPx, uDpr, uCamZ, uS, uGlint, uGlintA;
         varying vec3 vCol; varying float vA;
         ${GLSL_GEO} ${GLSL_FOG}
         void main() {
@@ -210,6 +220,9 @@ export default {
           float d = uScan - xn;
           float rev = smoothstep(-0.005, 0.07, d);
           float band = exp(-d * d / 0.0009) * step(-0.05, d) * (1.0 - smoothstep(1.02, 1.12, uScan));
+          float dg = uGlint - xn;
+          float glint = exp(-dg * dg / 0.006) * uGlintA;
+          float ff = faceFade(p);
           // discretisation: slide to the containing cell centre and vanish
           float s = clamp(uSnap * 1.55 - xn * 0.4 - aSeed.x * 0.15, 0.0, 1.0);
           float es = s * s * (3.0 - 2.0 * s);
@@ -218,8 +231,8 @@ export default {
           gl_Position = projectionMatrix * mv;
           float depth = -mv.z;
           float light = 0.78 + 0.34 * smoothstep(-1.0, 1.0, (-p.x * 0.10 + p.y * 0.42 + p.z * 0.14));
-          vA = uAlpha * (rev + band * 1.6) * fogOf(depth) * (1.0 - smoothstep(0.45, 1.0, s));
-          vCol = aCol * light + vec3(0.55, 0.85, 1.0) * band * 0.9 + vec3(0.4, 0.7, 1.0) * es * 0.6;
+          vA = uAlpha * (rev + band * 1.3 + glint) * fogOf(depth) * (1.0 - smoothstep(0.45, 1.0, s)) * ff;
+          vCol = aCol * light + vec3(0.55, 0.85, 1.0) * (band * 0.7 + glint * 0.35) + vec3(0.4, 0.7, 1.0) * es * 0.6;
           gl_PointSize = uPx * uDpr * (uCamZ / depth) * (0.7 + 0.6 * aSeed.y) * (1.0 + band * 0.8);
         }`,
       fragmentShader: `
@@ -289,8 +302,9 @@ export default {
           vec3 p = position;
           float rn = length(p.xz / uHalf) / 1.4142;
           float d = uSweep - rn;
-          vA = aW * uAlpha * smoothstep(0.0, 0.05, d) * fogOf(-(modelViewMatrix * vec4(p, 1.0)).z);
-          vBand = exp(-d * d / 0.0016) * aW * step(0.0, d + 0.06) * (1.0 - smoothstep(1.0, 1.12, uSweep)) * step(0.001, uAlpha);
+          float ff = faceFade(p);
+          vA = aW * uAlpha * smoothstep(0.0, 0.05, d) * fogOf(-(modelViewMatrix * vec4(p, 1.0)).z) * ff;
+          vBand = ff * exp(-d * d / 0.0016) * aW * step(0.0, d + 0.06) * (1.0 - smoothstep(1.0, 1.12, uSweep)) * step(0.001, uAlpha);
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
         }`,
       fragmentShader: `
@@ -507,8 +521,8 @@ export default {
         for (let n = 0; n < N; n++) {
           const q = r();
           let x, y, z, sheet = -1;
-          if (q < 0.34) { x = -HW + r() * W; z = HD; y = HZ[5].b + r() * (HZ[0].b - HZ[5].b); }
-          else if (q < 0.53) { x = HW; z = -HD + r() * D; y = HZ[5].b + r() * (HZ[0].b - HZ[5].b); }
+          if (q < 0.36) { x = -HW + r() * W; z = HD; y = HZ[5].b + r() * (HZ[0].b - HZ[5].b); }
+          else if (q < 0.47) { x = HW; z = -HD + r() * D; y = HZ[5].b + r() * (HZ[0].b - HZ[5].b); }
           else if (q < 0.85) {
             const qs = r();
             sheet = qs < 0.18 ? 1 : qs < 0.55 ? 2 : qs < 0.8 ? 3 : 4;
@@ -526,7 +540,7 @@ export default {
           const topL = hz(G, L, x, z);
           const lam = 0.8 + 0.2 * Math.sin((topL - y) * 58 + x * 0.35 + L * 2.1);
           const grain = 0.55 + 0.45 * r();
-          const k = (sheet >= 0 ? 0.62 : 0.5) * lam * grain * (L === 2 ? 1.15 : 1);
+          const k = (sheet >= 0 ? 1.25 : 1.15) * lam * grain * (L === 2 ? 1.1 : 1);
           col[n * 3] = base[0] * k; col[n * 3 + 1] = base[1] * k; col[n * 3 + 2] = base[2] * k;
           pos[n * 3] = x; pos[n * 3 + 1] = y; pos[n * 3 + 2] = z;
           const [i, j, kk] = cellIndex(x, y, z);

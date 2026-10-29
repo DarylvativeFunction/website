@@ -238,7 +238,7 @@ export default {
         const dt = k / (NZ - 1), dm = domeF(u, v);
         const pn = Math.sin(u * 2.9 + k * 0.9 + 1.3) * Math.cos(v * 2.3 - k * 0.55);
         const phi = Math.min(1, Math.max(0, 0.5 + lay[k] + 0.2 * pn + (rand() - 0.5) * 0.07 + 0.08 * (dt - 0.5)));
-        const so = Math.pow(dt, 4) * Math.pow(dm, 1.6) * 1.25;
+        const so = Math.pow(dt, 4) * Math.pow(dm, 2.2) * 1.25;
         cellsR[n++] = { x: bx, y, z: -by, tx: sx, ty: sy, k, dt, phi, so, rnd: rand() };
       }
       // order by x so cells map to letters left-to-right (monotone, coherent flow)
@@ -399,20 +399,21 @@ export default {
       stats: `${N.toLocaleString()} cubes (${nLetters} letter + ${nDebris} debris)`,
       update(t) {
         const inOut = t >= out0;
+        const bs = T.out[1] - 0.3;
         uni.uTime.value = t;
-        uni.uEdge.value = easeInOutCubic(ramp(t, 2.5, 3.9)) * (1 - easeInOutCubic(ramp(t, out0 + 0.8, dur - 0.1)));
+        uni.uEdge.value = easeInOutCubic(ramp(t, 2.5, 3.9)) * (1 - easeInOutCubic(ramp(t, bs, dur - 0.1)));
         uni.uGap.value = inOut ? 0 : easeInOutCubic(ramp(t, 3.7, 5.1));
         uni.uExplode.value = inOut ? 0 : easeInOutCubic(ramp(t, 4.3, 5.6));
-        uni.uDim.value = inOut ? 0.12 + 0.88 * ramp(t, out0 + 0.8, dur) : 1;
-        uni.uDebris.value = easeInOutCubic(ramp(t, nameAt - 1.5, nameAt - 0.3));
+        uni.uDim.value = inOut ? 0.12 + 0.88 * ramp(t, bs, dur - 0.1) : 1;
+        uni.uDebris.value = inOut ? 0 : easeInOutCubic(ramp(t, nameAt - 1.5, nameAt - 0.3));
         uni.uMorph.value = inOut ? 0 : ramp(t, TC0, nameAt);
         uni.uFade.value = inOut ? 0 : ramp(t, nameAt + 0.3, split0 - 0.05);
-        uni.uBuild.value = inOut ? easeInOutCubic(ramp(t, out0 + 0.8, dur)) : 1;
+        uni.uBuild.value = inOut ? easeInOutCubic(ramp(t, bs, dur - 0.25)) : 1;
         // fluid front sweeping through the intact block
         const fw = ramp(t, 0.4, 4.6);
         uni.uFront.value = lerp(-W * 0.7, W * 0.7, fw);
         uni.uFrontAmp.value = smoothstep(0.0, 0.12, fw) * (1 - smoothstep(0.82, 1.0, fw)) * (1 - ramp(t, 3.4, 4.6)) * 0.4;
-        ghostMat.uniforms.uAlpha.value = 0.05 * smoothstep(nameAt + 0.8, split0 + 1.2, t) * (1 - smoothstep(out0, out0 + 0.8, t));
+        ghostMat.uniforms.uAlpha.value = 0.05 * smoothstep(nameAt + 0.8, split0 + 1.2, t) * (1 - smoothstep(out0, T.out[1], t));
         ghostGroup.rotation.y = 0.5 + (t - nameAt) * 0.04;
         ghostGroup.rotation.x = 0.1;
         pose(t);
