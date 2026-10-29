@@ -44,8 +44,9 @@ const COMMON = /* glsl */`
 
 const POINTS_VS = /* glsl */`
   attribute vec4 aA; attribute vec4 aB; attribute vec3 aFloat; attribute vec3 aName;
-  uniform float uPhase, uForm, uConv, uRel, uDpr, uSize, uCamDist, uGate, uTop;
-  varying float vAlpha; varying vec3 vCol;
+  uniform float uPhase, uForm, uConv, uRel, uDpr, uSize, uCamDist, uGate, uTop, uReadMask;
+  uniform vec2 uRes; uniform vec4 uBox;
+  varying float vAlpha; varying vec3 vCol; varying float vSoft;
   ${COMMON}
   void main() {
     float seed = aB.x;
@@ -55,8 +56,8 @@ const POINTS_VS = /* glsl */`
     vec3 dr = vec3(sin(uPhase * f1 + seed * 40.0), sin(uPhase * f2 + aB.w * 33.0), sin(uPhase * f3 + aB.y * 27.0));
     vec3 pFloat = aFloat + dr * vec3(38.0 / f1, 30.0 / f2, 44.0 / f3);
     // --- formation (staggered, layer by layer)
-    float sF = 0.30 * seed + 0.28 * (k / 9.0);
-    float eF = quint(clamp((uForm - sF) / 0.42, 0.0, 1.0));
+    float sF = 0.24 * seed + 0.2 * (k / 9.0);
+    float eF = quint(clamp((uForm - sF) / 0.56, 0.0, 1.0));
     vec3 pForm = formPos(aA, aB) + dr * 1.5;
     vec3 swirl = vec3(sin(aB.w * 50.0), cos(seed * 37.0), sin(aB.y * 23.0)) * 55.0 * sin(3.14159265 * eF);
     vec3 P = mix(pFloat, pForm, eF) + swirl;
@@ -87,9 +88,12 @@ const POINTS_VS = /* glsl */`
     float xs = flowU(aA) * 2.0 - 1.0;
     float pulse = pow(0.5 + 0.5 * sin(xs * 9.0 - uT * 2.2 + aB.w * 6.2831), 6.0);
 
-    float a = mix(0.22 + 0.42 * aB.w * aB.w, 0.88 * band, formness);
+    vec2 q = aFloat.xy / (uVisH * 0.55);
+    float foc = 0.35 + 0.65 * exp(-dot(q, q) * 0.9);
+    float packet = step(0.97, seed);
+    float a = mix((0.22 + 0.42 * aB.w * aB.w) * foc, 0.88 * band, formness);
     a = mix(a, 0.8, nameness);
-    a *= 1.0 + uLoose * formness * 1.5 * pulse;
+    a *= 1.0 + uLoose * formness * (1.2 * pulse + 2.4 * packet * pulse);
     a *= mix(1.0, 0.42, f);
     a *= mix(1.0, edgeOf(aA), formness);
     a *= uGate;
@@ -98,20 +102,25 @@ const POINTS_VS = /* glsl */`
     vec3 col = mix(cool, warm, aB.y);
     col = mix(col, vec3(1.0), 0.6 * nameness);
     col = mix(col, vec3(1.0, 0.82, 0.58), 0.20 * pay * formness);
-    vCol = col; vAlpha = a;
+    vCol = col; vSoft = f;
 
     float size = mix(uSize, uSize * 1.3, nameness) * (1.0 + 1.5 * f * f) * persp;
-    size *= 1.0 + 0.5 * step(0.975, seed) * formness * uLoose;      // the odd "data packet"
+    size *= 1.0 + 0.9 * packet * formness * uLoose;      // the odd "data packet"
     gl_PointSize = max(1.25, size) * uDpr;
     gl_Position = projectionMatrix * mv;
+    vec2 ndc = gl_Position.xy / gl_Position.w;
+    vec2 px = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * uRes;
+    vec2 dd = max(max(uBox.xy - px, px - uBox.zw), 0.0);
+    float m = mix(0.03, 1.0, smoothstep(0.0, 90.0, length(dd)));
+    vAlpha = a * mix(1.0, m, uReadMask);
   }
 `;
 
 const POINTS_FS = /* glsl */`
-  varying float vAlpha; varying vec3 vCol;
+  varying float vAlpha; varying vec3 vCol; varying float vSoft;
   void main() {
     float d = length(gl_PointCoord - 0.5) * 2.0;
-    float a = smoothstep(1.0, 0.25, d);
+    float a = smoothstep(1.0, 0.25 * (1.0 - vSoft), d);
     gl_FragColor = vec4(vCol, a * vAlpha);
   }
 `;
@@ -214,6 +223,8 @@ const BG_FS = /* glsl */`
     float r = length(p * vec2(0.82, 1.08));
     vec3 c = mix(vec3(0.074, 0.082, 0.098), vec3(0.010, 0.011, 0.014), smoothstep(0.0, 1.0, r));
     c *= 1.0 + 0.35 * uLift;
+    vec2 kq = (vUv - vec2(0.5, 0.64)) * vec2(1.0 * uAspect, 2.1);
+    c += vec3(0.50, 0.57, 0.68) * exp(-dot(kq, kq) * 1.6) * 0.045;
     float hy = 0.60;
     float g = exp(-pow((vUv.y - hy) * 8.0, 2.0)) * exp(-p.x * p.x * 1.1) * uHorizon * 0.055;
     c += vec3(0.56, 0.63, 0.75) * g;
@@ -247,15 +258,15 @@ export default {
   name: 'Minimal Premium',
   blurb: 'Weightless particles settle into a folded stratigraphy, are traced by hairline contours and a sparse grid, flow as data, and converge into the name.',
   tech: 'Three.js · GPU-derived points · hairline GL lines · 24k particles',
-  duration: 17,
-  nameAt: 8.3,
+  duration: 17.4,
+  nameAt: 8.6,
   nameWeight: 600,
   phases: [
-    { label: 'Float', start: 0, end: 1.6 },
-    { label: 'Strata', start: 1.6, end: 3.6 },
-    { label: 'Contours + Grid', start: 3.6, end: 5.4 },
-    { label: 'Data network', start: 5.4, end: 6.8 },
-    { label: 'Converge', start: 6.8, end: 8.3 },
+    { label: 'Float', start: 0, end: 1.4 },
+    { label: 'Strata', start: 1.4, end: 3.6 },
+    { label: 'Contours + Grid', start: 3.6, end: 5.2 },
+    { label: 'Data network', start: 5.2, end: 7.1 },
+    { label: 'Converge', start: 7.1, end: 8.6 },
   ],
   reveal: {
     colors: {
@@ -284,7 +295,8 @@ export default {
       uForm: { value: 0 }, uConv: { value: 0 }, uRel: { value: 0 }, uGate: { value: 1 },
       uFlow: { value: 0 }, uLoose: { value: 0 }, uCamDist: { value: CAM_Z },
       uFW: { value: 1 }, uFD: { value: 1 }, uTH: { value: 1 }, uA: { value: 1 }, uY0: { value: 0 },
-      uSlope: { value: 0 }, uVisH: { value: 1 },
+      uSlope: { value: 0 }, uVisH: { value: 1 }, uReadMask: { value: 0 },
+      uRes: { value: new THREE.Vector2(1, 1) }, uBox: { value: new THREE.Vector4(0, 0, 1, 1) },
     };
     const own = (extra) => Object.assign({}, U, extra);
 
@@ -349,6 +361,7 @@ export default {
       U.uY0.value = D.y0; U.uSlope.value = D.slope; U.uVisH.value = D.visH;
       camera.aspect = W / H; camera.updateProjectionMatrix();
       bgMat.uniforms.uAspect.value = W / H;
+      { const b = c.layout.fullBox; U.uRes.value.set(W, H); U.uBox.value.set(b.x - 30, b.y - 30, b.x + b.w + 30, c.layout.subtitle.top + 90); }
       U.uDpr.value = tMat.uniforms.uDpr.value = renderer.getPixelRatio();
 
       // --- particles
@@ -365,7 +378,7 @@ export default {
         aB[i * 4] = r(); aB[i * 4 + 1] = r(); aB[i * 4 + 2] = front ? 1 : 0; aB[i * 4 + 3] = r();
         aFloat[i * 3] = gauss() * Math.max(D.visW, D.visH * 1.1) * 0.34;
         aFloat[i * 3 + 1] = gauss() * D.visH * 0.34;
-        aFloat[i * 3 + 2] = -460 + r() * 820;
+        aFloat[i * 3 + 2] = r() < 0.06 ? 230 + r() * 230 : -460 + r() * 640;
         keys[i] = xn + (r() - 0.5) * 0.35;
       }
       // name targets, matched left-to-right so the converge flows coherently
@@ -392,13 +405,13 @@ export default {
       const cells = new Map();
       const NCX = 22, NCZ = 12;
       for (let i = 0; i < N; i++) {
-        if (aB[i * 4 + 2] > 0.5 || aA[i * 4 + 2] > 4) continue;
+        if (aB[i * 4 + 2] > 0.5 || aA[i * 4 + 2] > 6) continue;
         const cx = Math.floor((aA[i * 4] + 1) * 0.5 * NCX), cz = Math.floor((aA[i * 4 + 1] + 1) * 0.5 * NCZ);
         const key = (aA[i * 4 + 2] * 100 + cx) * 100 + cz;
         let l = cells.get(key); if (!l) cells.set(key, l = []); l.push(i);
       }
       const pool = [...cells.values()].filter((l) => l.length >= 2);
-      const M = low ? 170 : 560;
+      const M = low ? 420 : 1500;
       const lA0 = new Float32Array(M * 8), lB0 = new Float32Array(M * 8), lA1 = new Float32Array(M * 8), lB1 = new Float32Array(M * 8), lE = new Float32Array(M * 2);
       const rl = rng(5);
       for (let m = 0; m < M; m++) {
@@ -436,7 +449,7 @@ export default {
         lineNo++;
       };
       // (a) cross-section stratigraphy on the front face
-      const fronts = [0, 2, 4, 6, 9];
+      const fronts = [0, 2, 4, 6, 8];
       fronts.forEach((k, idx) => {
         const pts = [];
         for (let s = 0; s <= 90; s++) { const xs = -1 + (2 * s) / 90; pts.push(xs * D.fw / 2, fold(xs, 1, k) , D.fd / 2); }
@@ -490,7 +503,7 @@ export default {
         }
         // cross-section columns
         const top = { p: [xs * D.fw / 2, fold(xs, 1, 0), D.fd / 2], r: rad(xs, 1) };
-        const bot = { p: [xs * D.fw / 2, fold(xs, 1, 9), D.fd / 2], r: rad(xs, 1) };
+        const bot = { p: [xs * D.fw / 2, fold(xs, 1, 8.85), D.fd / 2], r: rad(xs, 1) };
         seg(top, bot);
       }
       gGeo = new THREE.BufferGeometry();
@@ -515,45 +528,47 @@ export default {
     const sm = (a, b, t) => smoothstep(a, b, t);
 
     return {
-      stats: `${N.toLocaleString()} particles · ${low ? 170 : 560} links`,
+      stats: `${N.toLocaleString()} particles · ${low ? 420 : 1500} links`,
       update(t) {
         // --- timeline
         U.uT.value = t;
         U.uPhase.value = (TAU * t) / T.duration;
-        U.uForm.value = ramp(t, 1.3, 3.7);
-        U.uConv.value = ramp(t, 6.35, nameAt);
+        U.uForm.value = ramp(t, 0.9, 3.4);
+        U.uConv.value = ramp(t, 6.75, nameAt);
         U.uRel.value = ramp(t, nameAt + 0.7, nameAt + 5.3);
-        const loose = sm(5.0, 6.6, t);
+        const loose = sm(4.8, 6.6, t);
         U.uLoose.value = loose;
-        const s = Math.max(0, Math.min(3.4, t - 5.0));
-        U.uFlow.value = 0.03 * s * s;
+        const s = Math.max(0, Math.min(4.0, t - 4.8));
+        U.uFlow.value = 0.034 * s * s;
 
         // global brightness: full -> name -> hand-off gap -> quiet -> back to opening level
-        const dim = 0.42;
-        U.uGate.value = (1 - sm(nameAt + 0.3, nameAt + 1.1, t))
-          + dim * sm(nameAt + 1.3, nameAt + 3.8, t)
+        const dim = 0.34;
+        U.uGate.value = (1 - sm(nameAt + 0.3, nameAt + 1.0, t))
+          + dim * sm(nameAt + 2.4, nameAt + 4.6, t)
           + (1 - dim) * sm(T.out[0], T.duration, t);
 
+        U.uReadMask.value = sm(nameAt + 1.4, nameAt + 3.0, t) * (1 - sm(T.duration - 1.0, T.duration, t));
         // structure layers
-        const fade = (1 - 0.6 * sm(5.2, 6.2, t)) * (1 - sm(6.5, 7.5, t));
+        const fade = (1 - 0.6 * sm(5.2, 6.2, t)) * (1 - sm(6.8, 7.8, t));
         cMat.uniforms.uDraw.value = ramp(t, 3.5, 5.7);
         cMat.uniforms.uAlpha.value = fade;
         const reveal = ramp(t, 4.0, 5.9) * 1.45;
         gMat.uniforms.uReveal.value = reveal; gMat.uniforms.uAlpha.value = 0.13 * fade;
         tMat.uniforms.uReveal.value = reveal; tMat.uniforms.uAlpha.value = 0.38 * fade;
-        lMat.uniforms.uLink.value = 0.20 * sm(5.3, 6.2, t) * (1 - sm(6.5, 7.4, t));
+        lMat.uniforms.uLink.value = 0.34 * sm(4.7, 5.5, t) * (1 - sm(7.2, 8.1, t));
 
         // background light
-        bgMat.uniforms.uHorizon.value = sm(1.6, 4.2, t) * (1 - sm(6.2, 7.8, t));
+        bgMat.uniforms.uHorizon.value = 0;
+        { const h = (0.4 + 0.6 * sm(1.4, 3.4, t)) * (1 - 0.95 * sm(6.5, 8.0, t)); bgMat.uniforms.uHorizon.value = h + (0.4 - h) * sm(nameAt + 3.0, T.duration, t); }
         bgMat.uniforms.uLift.value = 0.3 * sm(5.5, nameAt, t) * (1 - sm(nameAt + 1.0, nameAt + 3.0, t));
 
         // camera: elevated and drifting for the formation, canonical pose at nameAt
-        const lock = sm(6.0, nameAt, t) * (1 - sm(nameAt + 1.5, nameAt + 5.0, t));
+        const lock = sm(6.4, nameAt, t) * (1 - sm(nameAt + 1.5, nameAt + 5.0, t));
         const env = 1 - lock;
         const ph = (TAU * t) / T.duration;
-        const pitch = env * (0.31 + 0.03 * Math.sin(ph + 1.1));
-        const yaw = env * 0.15 * Math.sin(ph + 0.5);
-        const d = CAM_Z * (1 + 0.1 * env);
+        const pitch = env * (0.31 + 0.05 * Math.sin(ph + 1.1));
+        const yaw = env * 0.2 * Math.sin(ph + 0.5);
+        const d = CAM_Z * (1 + env * (0.1 + 0.035 * Math.sin(ph - 0.6)));
         const cp = Math.cos(pitch);
         camera.position.set(d * Math.sin(yaw) * cp, d * Math.sin(pitch), d * Math.cos(yaw) * cp);
         camera.lookAt(0, 0, 0);
