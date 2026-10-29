@@ -280,7 +280,7 @@ export default {
       uniforms: shared({ uAlpha: { value: 0 } }),
       vertexShader: `
         attribute float aU; uniform float uAlpha; varying float vU; varying float vA;
-        ${GLSL_FOG}
+        ${GLSL_GEO} ${GLSL_FOG}
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
