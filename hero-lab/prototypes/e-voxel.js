@@ -136,9 +136,9 @@ export default {
           float hemi = n.y * 0.5 + 0.5;
           float fill = max(dot(n, normalize(vec3(0.7, 0.1, 0.6))), 0.0);
           float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-          vec3 col = vCol * (0.10 + 0.10 * hemi + 1.15 * diff + 0.06 * fill);
+          vec3 col = vCol * (0.05 + 0.06 * hemi + 1.05 * diff + 0.04 * fill);
           col *= mix(1.0, 1.7, vE);
-          col += vec3(0.30, 0.62, 0.72) * rim * 0.22;
+          col += vec3(0.30, 0.62, 0.72) * rim * 0.15;
           col += vec3(0.2, 0.6, 0.7) * vGlow * 0.4;
           // cube edges: pale hairlines on the grid, dark creases on the voxel letters
           vec3 q = abs(vLocal);
@@ -160,7 +160,7 @@ export default {
       fragmentShader: `varying vec2 vUv; uniform float uAsp;
         void main(){ vec2 p = (vUv - vec2(0.5, 0.52)) * vec2(uAsp, 1.0);
           float d = length(p + vec2(0.1, -0.12));
-          vec3 c = mix(vec3(0.030, 0.046, 0.064), vec3(0.005, 0.008, 0.012), smoothstep(0.0, 0.95, d));
+          vec3 c = mix(vec3(0.011, 0.016, 0.024), vec3(0.0012, 0.0016, 0.0024), smoothstep(0.0, 0.9, d));
           gl_FragColor = vec4(c, 1.0); }`,
     });
     const bg = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
@@ -276,12 +276,12 @@ export default {
       const aStart = new Float32Array(N * 3), aTilt = new Float32Array(N * 2), aTarget = new Float32Array(N * 3), aAxis = new Float32Array(N * 3);
       const aRandA = new Float32Array(N * 4), aColor = new Float32Array(N * 3), aInfo = new Float32Array(N * 3);
       const ramp3 = (p, o) => {
-        const A0 = [0.018, 0.045, 0.11], B0 = [0.06, 0.25, 0.31], C0 = [0.56, 0.74, 0.78];
+        const A0 = [0.012, 0.03, 0.075], B0 = [0.035, 0.15, 0.19], C0 = [0.36, 0.52, 0.56];
         p = Math.pow(p, 1.9);
         const s = p < 0.5 ? p * 2 : (p - 0.5) * 2, a = p < 0.5 ? A0 : B0, b = p < 0.5 ? B0 : C0;
         for (let q = 0; q < 3; q++) o[q] = a[q] + (b[q] - a[q]) * s;
       };
-      const col = [0, 0, 0], amber = [0.80, 0.47, 0.12];
+      const col = [0, 0, 0], amber = [0.72, 0.36, 0.07];
       const WXmax = w * 0.5;
       for (let i = 0; i < N; i++) {
         const q = cellsR[i];
@@ -289,7 +289,7 @@ export default {
         aTilt.set([Math.atan(q.ty), Math.atan(q.tx)], i * 2);
         ramp3(q.phi, col);
         const am = smoothstep(0.08, 0.85, q.so);
-        for (let z = 0; z < 3; z++) col[z] += (amber[z] - col[z]) * am * 0.88;
+        for (let z = 0; z < 3; z++) col[z] += (amber[z] - col[z]) * am * 0.78;
         const stripe = 0.9 + 0.1 * Math.sin(q.k * 2.1);
         aColor.set([col[0] * stripe, col[1] * stripe, col[2] * stripe], i * 3);
         let t = targets[tgtOf[i]];

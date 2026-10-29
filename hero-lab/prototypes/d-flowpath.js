@@ -269,7 +269,7 @@ const VERT = /* glsl */ `
 
 const FRAG = /* glsl */ `
   varying vec4 vCol;
-  void main() { gl_FragColor = vCol; }`;
+  void main() { gl_FragColor = vec4(vCol.rgb, LOWFIX(vCol.a)); }`;
 
 const FIELD_VERT = /* glsl */ `
   uniform sampler2D uS; uniform float uPS, uPh, uFieldA, uBandY, uBandH, uBandAmt, uGlob;
@@ -298,7 +298,7 @@ const BG_FRAG = /* glsl */ `
     vec2 q = (vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0);
     float r = length(q);
     vec3 c = mix(vec3(0.0011, 0.0034, 0.0065), vec3(0.0001, 0.0003, 0.0010), smoothstep(0.0, 0.85, r));
-    gl_FragColor = vec4(c, 1.0);
+    gl_FragColor = vec4(LOWC, 1.0);
   }`;
 
 /* ------------------------------------------------------------------ prototype */
@@ -346,13 +346,14 @@ export default {
     };
     const ringU = { uA: { value: 0.4 } };
 
-    const trailMat = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
-    const fieldMat = new THREE.ShaderMaterial({ uniforms, vertexShader: FIELD_VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
-    const ringMat = new THREE.ShaderMaterial({ uniforms: ringU, vertexShader: RING_VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
+    const fix = (src) => src.replace('LOWFIX(vCol.a)', low ? 'pow(vCol.a, 0.5)' : 'vCol.a').replace('LOWC', low ? 'pow(c, vec3(0.45))' : 'c');
+    const trailMat = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: fix(FRAG), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
+    const fieldMat = new THREE.ShaderMaterial({ uniforms, vertexShader: FIELD_VERT, fragmentShader: fix(FRAG), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
+    const ringMat = new THREE.ShaderMaterial({ uniforms: ringU, vertexShader: RING_VERT, fragmentShader: fix(FRAG), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
     const bgMat = new THREE.ShaderMaterial({
       uniforms: { uRes: { value: new THREE.Vector2(ctx.width, ctx.height) } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: BG_FRAG, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+      fragmentShader: fix(BG_FRAG), depthWrite: false, depthTest: false, side: THREE.DoubleSide,
     });
     const bg = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), bgMat);
     bg.renderOrder = -10; bg.frustumCulled = false;

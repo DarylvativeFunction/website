@@ -41,6 +41,8 @@ const LAYER_COL = [
   [0.36, 0.30, 0.27],
 ];
 const WATER_COL = [0.30, 0.40, 0.46];
+const LAYER_DENS = [0.5, 0.3, 1.0, 0.45, 0.7];
+const LAYER_GAIN = [0.8, 0.75, 1.2, 0.8, 0.95];
 
 const GLSL_GEO = /* glsl */`
   uniform vec2 uHalf;  // block half extents (x, z)
@@ -91,7 +93,7 @@ const SOFT_DOT = /* glsl */`
 function makeGeo(aspect) {
   const W = clamp(aspect * 7.4, 7.6, 12);
   const D = clamp(aspect * 4.4, 5.6, 7);
-  return { W, D, AX: W * 0.275, AZ: D * 0.36 };
+  return { W, D, AX: W * 0.24, AZ: D * 0.62 };
 }
 function domeJS(G, x, z) { return Math.exp(-(x * x / (2 * G.AX * G.AX) + z * z / (2 * G.AZ * G.AZ))); }
 function undJS(x, z, k) { return 0.09 * Math.sin(0.62 * x + 0.38 * z + 1.7 * k) + 0.05 * Math.sin(1.35 * z - 0.45 * x + 0.9 * k); }
@@ -520,12 +522,26 @@ export default {
         const gauss = () => (r() + r() + r() - 1.5) / 1.5;
         for (let n = 0; n < N; n++) {
           const q = r();
-          let x, y, z, sheet = -1;
-          if (q < 0.36) { x = -HW + r() * W; z = HD; y = HZ[5].b + r() * (HZ[0].b - HZ[5].b); }
-          else if (q < 0.47) { x = HW; z = -HD + r() * D; y = HZ[5].b + r() * (HZ[0].b - HZ[5].b); }
-          else if (q < 0.85) {
+          let x, y, z, sheet = -1, trace = false;
+          const faceY = (fx, fz) => {
+            // layer-weighted density on the cut faces: tight rocks sparse, sandstone dense
+            for (let tries = 0; tries < 6; tries++) {
+              const yy = HZ[5].b + r() * (HZ[0].b - HZ[5].b);
+              if (r() < LAYER_DENS[layerOf(fx, yy, fz)]) return yy;
+            }
+            return HZ[5].b + r() * (HZ[0].b - HZ[5].b);
+          };
+          if (q < 0.42) { x = -HW + r() * W; z = HD; y = faceY(x, z); }
+          else if (q < 0.5) { x = HW; z = -HD + r() * D; y = faceY(x, z); }
+          else if (q < 0.58) {
+            // reflector traces: horizons where they cut the front and right faces
+            trace = true;
+            sheet = 1 + Math.floor(r() * 4);
+            if (r() < 0.72) { x = -HW + r() * W; z = HD; } else { x = HW; z = -HD + r() * D; }
+            y = hz(G, sheet, x, z) + gauss() * 0.01;
+          } else if (q < 0.86) {
             const qs = r();
-            sheet = qs < 0.18 ? 1 : qs < 0.55 ? 2 : qs < 0.8 ? 3 : 4;
+            sheet = qs < 0.18 ? 1 : qs < 0.58 ? 2 : qs < 0.8 ? 3 : 4;
             x = -HW + r() * W; z = -HD + r() * D; y = hz(G, sheet, x, z) + gauss() * 0.018;
           } else {
             x = -HW + r() * W; z = -HD + r() * D;
@@ -537,10 +553,12 @@ export default {
           if (L === 2 && y < OWC) base = WATER_COL;
           if (sheet === 2) base = hz(G, 2, x, z) > OWC + 0.05 ? [0.95, 0.66, 0.30] : [0.40, 0.52, 0.58];
           if (sheet === 3) base = [0.36, 0.42, 0.50];
+          if (trace) base = sheet === 2 ? [1.0, 0.74, 0.40] : [0.62, 0.70, 0.80];
           const topL = hz(G, L, x, z);
-          const lam = 0.8 + 0.2 * Math.sin((topL - y) * 58 + x * 0.35 + L * 2.1);
-          const grain = 0.55 + 0.45 * r();
-          const k = (sheet >= 0 ? 1.25 : 1.15) * lam * grain * (L === 2 ? 1.1 : 1);
+          const sl = Math.sin((topL - y) * 46 + x * 0.3 + L * 2.1);
+          const lam = 0.45 + 0.55 * sl * sl;
+          const grain = 0.5 + 0.5 * r();
+          const k = (trace ? 1.5 : sheet >= 0 ? 1.15 : 1.3 * lam) * grain * LAYER_GAIN[L];
           col[n * 3] = base[0] * k; col[n * 3 + 1] = base[1] * k; col[n * 3 + 2] = base[2] * k;
           pos[n * 3] = x; pos[n * 3 + 1] = y; pos[n * 3 + 2] = z;
           const [i, j, kk] = cellIndex(x, y, z);
@@ -832,7 +850,7 @@ export default {
         const SM = strataMat.uniforms;
         const rebuild0 = T.out[1] - 0.3;
         if (t < T.split[1]) {
-          SM.uScan.value = lerp(-0.04, 1.14, easeInOutSine(ramp(t, 0.0, 2.45)));
+          SM.uScan.value = lerp(0.0, 1.14, easeInOutSine(ramp(t, 0.0, 2.45)));
           SM.uAlpha.value = 1 - 0.3 * ramp(t, 5.2, 6.4);
           SM.uSnap.value = ramp(t, 6.85, 8.3);
           SM.uGlintA.value = 0;
@@ -840,12 +858,12 @@ export default {
         } else if (t < rebuild0) {
           SM.uScan.value = 1.14;
           SM.uSnap.value = 0;
-          SM.uAlpha.value = 0.2 * easeInOutSine(ramp(t, T.read[0] - 0.8, T.read[0] + 1.2)) * (1 - easeInOutSine(ramp(t, T.out[0] - 0.2, T.out[0] + 0.5)));
+          SM.uAlpha.value = 0.27 * easeInOutSine(ramp(t, T.read[0] - 0.8, T.read[0] + 1.2)) * (1 - easeInOutSine(ramp(t, T.out[0] - 0.2, T.out[0] + 0.5)));
           SM.uGlint.value = lerp(-0.25, 1.25, ramp(t, T.read[0] - 0.8, T.out[0]));
           SM.uGlintA.value = 0.9;
           strata.position.y = readOff;
         } else {
-          SM.uScan.value = -0.04;
+          SM.uScan.value = 0.0;
           SM.uSnap.value = 0;
           SM.uAlpha.value = easeInOutSine(ramp(t, rebuild0, T.duration));
           SM.uGlintA.value = 0;
