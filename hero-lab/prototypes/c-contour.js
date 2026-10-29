@@ -142,12 +142,12 @@ void main() {
   float hw = uDpr * mix(0.55, 0.95, isIdx);
   float core = 1.0 - smoothstep(hw - 0.6, hw + 0.6, dpx);
   float glow = exp(-dpx / (uDpr * 3.4)) * mix(0.16, 0.30, isIdx) * uQ;
-  float dens = 1.0 - smoothstep(0.16, 0.38, fw);
+  float dens = (1.0 - smoothstep(0.16, 0.38, fw)) * smoothstep(0.004, 0.014, fw);
   float I = mix(0.50, 1.0, isIdx) * dens;
 
   float inside = smoothstep(-0.8, 0.8, dcss);
   float ringI = mix(0.20, 1.0, exp(-r / (uFs * 0.85)));
-  ringI *= mix(1.0, 0.45, inside);
+  ringI *= mix(1.0, 0.45, inside) * (1.0 - smoothstep(uFs * 2.2, uFs * 3.6, r));
   I *= mix(1.0, ringI, uB);
 
   // ---- colour ----
