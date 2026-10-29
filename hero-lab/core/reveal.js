@@ -160,7 +160,7 @@ export function createReveal(container, opts = {}) {
 
     const [o0, o1] = T.out;
     ft([sub, rule], { opacity: 1 }, { opacity: 0, duration: (o1 - o0) * 0.6, ease: 'power1.in' }, o0);
-    ft([daryl, yijin, tan], { opacity: 1, filter: 'blur(0px)', y }, { opacity: 0, filter: 'blur(8px)', y: y - L.fontSize * 0.05, duration: o1 - o0, ease: 'power2.in', stagger: 0.06 }, o0 + 0.1);
+    ft([daryl, yijin, tan], { opacity: 1, filter: 'blur(0px)', y }, { opacity: 0, filter: 'blur(8px)', y: y - L.fontSize * 0.05, duration: o1 - o0 - 0.22, ease: 'power2.in', stagger: 0.06 }, o0 + 0.1);   // last word ends exactly at o1
     // pad to full cycle so seeking near the end stays settled
     tl.set({}, {}, T.duration);
     tl.time(lastT, true);

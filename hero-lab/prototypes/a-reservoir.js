@@ -777,6 +777,15 @@ export default {
         nodeMat.uniforms.uNameA.value = clamp(0.35 + pxPerNode * 0.05, 0.4, 0.95);
       }
 
+      // read phase: the strata return, face-on and dim, below the subtitle
+      {
+        const L = c.layout;
+        const dFront = CAM_Z - HD * S;
+        const pxPerUnit = h / (2 * dFront * Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
+        const targetPx = L.subtitle.top + (L.subtitle.narrow ? 96 : 56);
+        readOff = ((h / 2 - targetPx) / pxPerUnit) / S - HZ[0].b;
+      }
+
       strataMat.uniforms.uPx.value = lerp(1.25, 1.75, S);
       flowMat.uniforms.uPx.value = lerp(1.6, 2.1, S);
       nodeMat.uniforms.uPx.value = lerp(1.8, 2.6, S);
@@ -785,7 +794,7 @@ export default {
       if (composer) { composer.setSize(w, h); bloom.resolution.set(w, h); }
     }
 
-    let edgeCount = 0;
+    let edgeCount = 0, readOff = 0;
     build(ctx);
 
     // ---------- camera ----------
@@ -796,8 +805,8 @@ export default {
       if (t <= NAME_AT) {
         az = hermiteKeys(CAM_KEYS, t, 1); el = hermiteKeys(CAM_KEYS, t, 2); dist = hermiteKeys(CAM_KEYS, t, 3); ty = hermiteKeys(CAM_KEYS, t, 4);
       } else {
-        // hold the canonical pose, then (in darkness) return to the opening pose
-        const k = easeInOutSine(ramp(t, T.out[0] + 0.4, T.duration));
+        // hold the canonical pose, then (as the name leaves) return to the opening pose
+        const k = easeInOutSine(ramp(t, T.out[0] + 0.25, T.out[1] - 0.3));
         const K0 = CAM_KEYS[0];
         az = K0[1] * k; el = K0[2] * k; dist = lerp(CAM_Z, K0[3], k); ty = K0[4] * k;
       }
@@ -805,6 +814,8 @@ export default {
       tgtV.set(0, ty, 0);
       camera.position.set(Math.sin(a) * Math.cos(e) * dist, ty + Math.sin(e) * dist, Math.cos(a) * Math.cos(e) * dist);
       camera.lookAt(tgtV);
+      camera.updateMatrixWorld();
+      U.uCamL.value.copy(camera.position).divideScalar(S);
       U.uFogNear.value = dist - 2.5 * S;
       U.uFogFar.value = dist + 8 * S;
     }
@@ -816,10 +827,30 @@ export default {
         U.uT.value = t;
         placeCamera(t);
 
-        // 1. strata: scan sweep, dim under the grid, snap to cells
-        strataMat.uniforms.uScan.value = lerp(-0.1, 1.14, easeInOutSine(ramp(t, 0.25, 2.55)));
-        strataMat.uniforms.uAlpha.value = 1 - 0.3 * ramp(t, 5.2, 6.4);
-        strataMat.uniforms.uSnap.value = ramp(t, 6.85, 8.3);
+        // 1. strata: scan sweep, dim under the grid, snap to cells; later a dim face-on
+        //    echo during the read, then the opening scan line is rebuilt before the loop
+        const SM = strataMat.uniforms;
+        const rebuild0 = T.out[1] - 0.3;
+        if (t < T.split[1]) {
+          SM.uScan.value = lerp(-0.04, 1.14, easeInOutSine(ramp(t, 0.0, 2.45)));
+          SM.uAlpha.value = 1 - 0.3 * ramp(t, 5.2, 6.4);
+          SM.uSnap.value = ramp(t, 6.85, 8.3);
+          SM.uGlintA.value = 0;
+          strata.position.y = 0;
+        } else if (t < rebuild0) {
+          SM.uScan.value = 1.14;
+          SM.uSnap.value = 0;
+          SM.uAlpha.value = 0.2 * easeInOutSine(ramp(t, T.read[0] - 0.8, T.read[0] + 1.2)) * (1 - easeInOutSine(ramp(t, T.out[0] - 0.2, T.out[0] + 0.5)));
+          SM.uGlint.value = lerp(-0.25, 1.25, ramp(t, T.read[0] - 0.8, T.out[0]));
+          SM.uGlintA.value = 0.9;
+          strata.position.y = readOff;
+        } else {
+          SM.uScan.value = -0.04;
+          SM.uSnap.value = 0;
+          SM.uAlpha.value = easeInOutSine(ramp(t, rebuild0, T.duration));
+          SM.uGlintA.value = 0;
+          strata.position.y = 0;
+        }
 
         // 2. wellbore
         const grow = easeInOutCubic(ramp(t, 2.25, 3.45));
