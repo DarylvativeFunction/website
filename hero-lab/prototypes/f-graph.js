@@ -145,7 +145,7 @@ void main() {
   col = mix(col, vec3(${ACCENT.join(',')}), fl * 0.85);
   vCol = col;
   float dep = clamp(1.0 + (np.z - 1.0) * 7.0, 0.5, 1.3);
-  vA = uAlpha * vis * mix(1.0, dep, live) * (1.0 + 0.5 * sc) * (1.0 - m2 * (1.0 - aMeta.w));
+  vA = uAlpha * vis * mix(1.0, dep, live) * (1.0 + 0.5 * sc) * (1.0 - m2 * (1.0 - aMeta.w)) * mix(1.0, 0.35 + 0.95 * aMeta.y, 1.0 - m1);
   gl_PointSize = uSize * uDpr * mix(1.0, np.z, live) * (1.0 + 0.9 * fl + 0.7 * sc) * (1.0 - 0.1 * m2);
 }`;
 
@@ -394,7 +394,7 @@ export default {
         transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
         uniforms: {
           ...shared,
-          uSize: { value: narrow ? 2.0 : 2.5 }, uDpr: { value: dpr }, uAlpha: { value: 1 },
+          uSize: { value: narrow ? 2.2 : 2.9 }, uDpr: { value: dpr }, uAlpha: { value: 1 },
           uScanY: { value: 0 }, uScanW: { value: sH * 0.02 + 3 }, uScanOn: { value: 0 },
           uPulseC: { value: -99 }, uPulseT: { value: -99 }, uGainC: { value: 0 }, uGainT: { value: 0 },
           uWc: { value: 0.7 }, uWt: { value: 14 },
@@ -481,12 +481,12 @@ export default {
         o2.textAlign = 'right';
         o2.fillText('x (m)', x1, y1 + 6 + fs * 2 + 6);
         // well-log traces
-        const nw = G.narrow ? 2 : 3, cw = G.narrow ? 22 : 36;
+        const nw = G.narrow ? 2 : 3, cw = G.narrow ? 18 : 28;
         for (let wi = 0; wi < nw; wi++) {
           const uw = nw === 3 ? [0.17, 0.5, 0.83][wi] : [0.25, 0.75][wi];
           const xw = sec.x0 + uw * (sec.x1 - sec.x0);
           o2.strokeStyle = ink(0.28 * inSec); o2.beginPath(); o2.moveTo(xw, sec.y0 - 14); o2.lineTo(xw, sec.y1 + 4); o2.stroke();
-          o2.strokeStyle = ink(0.8 * inSec); o2.lineWidth = 1.1; o2.beginPath();
+          o2.strokeStyle = ink(0.55 * inSec); o2.lineWidth = 1; o2.beginPath();
           for (let q = 0; q <= 120; q++) {
             const dd = q / 120, yy = sec.y0 + (dd + G.foldF(uw, dd)) * (sec.y1 - sec.y0), xx = xw + 3 + G.phiAt(uw, Math.min(0.999, dd)) * cw;
             q ? o2.lineTo(xx, yy) : o2.moveTo(xx, yy);

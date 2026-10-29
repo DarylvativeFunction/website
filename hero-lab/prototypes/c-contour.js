@@ -129,8 +129,7 @@ void main() {
   float fT = -dcss / uSpT;
   float r = max(-dcss, 0.0);
 
-  vec2 eq = (p / uSize - vec2(0.5, 0.47)) * vec2(1.0, uSize.y / uSize.x * 1.6);
-  float edgeN = clamp((length(vec2(eq.x * 0.45, eq.y * 1.6 * uSize.x / uSize.y * 0.625)) - 0.1) * 2.2, 0.0, 1.0);
+  float edgeN = clamp((length((p - origin()) / vec2(uFs * 2.6, uFs * 0.9)) - 1.0) / 2.2, 0.0, 1.0);
   float rk = clamp((uRet - (1.0 - edgeN) * 0.82) / 0.18, 0.0, 1.0);
   float Sx = uS * (1.0 - rk * rk * (3.0 - 2.0 * rk));
   fS -= uDef * 15.0 * exp(-r / (uFs * 0.9));   // strata pile up into an anticline over the name
