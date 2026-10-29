@@ -364,7 +364,8 @@ export default {
       bgMat.uniforms.uRes.value.set(w, h);
 
       // streamlines
-      const S = low ? 56 : 150;
+      const dens = clamp((w * h) / (1440 * 900) * 1.7, 0.4, 1);
+      const S = Math.round((low ? 56 : 150) * dens);
       const { lines, wells } = buildStreams(w, h, S, rand);
       const nS = lines.length;
       const sData = new Float32Array(nS * PS * 4);
@@ -414,7 +415,7 @@ export default {
 
       // trail geometry
       const kv = low ? 28 : K;
-      const nAmb = nS * (low ? 2 : 3);
+      const nAmb = Math.round(nS * (low ? 2 : dens < 0.7 ? 2 : 3));
       const total = count + nAmb;
       const nv = total * kv;
       const aA = new Float32Array(nv * 4), aB = new Float32Array(nv * 4), aC = new Float32Array(nv * 4);
@@ -433,7 +434,7 @@ export default {
         const off = (inStream[sr]++ * 0.37 + rand() * 0.25) % 1;
         const amp = outline ? 1.0 : 0.62;
         const tint = rand() < (outline ? 0.14 : 0.1) ? 1 : 0;
-        const sAmp = isAmb ? 0.35 + rand() * 0.65 : 0.12 + rand() * 0.3;
+        const sAmp = isAmb ? 0.35 + rand() * 0.65 : 0.1 + rand() * 0.22;
         const span = 0.2;
         const win0 = isAmb ? 0 : clamp(asgJ[g] / (PS - 1) - span / 2, 0, 1 - span);
         for (let k = 0; k < kv; k++) {
@@ -516,11 +517,11 @@ export default {
         // stream brightness: full in the opening, dim for the read phase
         const dim = e(ramp(t, N + 1.0, N + 3.3));
         const back = e(ramp(t, out0, dur - 0.3));
-        const streamA = 0.62 - (0.62 - 0.17) * dim * (1 - back);
+        const streamA = 0.55 - (0.55 - 0.12) * dim * (1 - back);
         uniforms.uStreamA.value = streamA;
         const glob = uniforms.uMup.value * (1 - uniforms.uMdn.value);
         uniforms.uGlob.value = glob;
-        uniforms.uFieldA.value = 0.085 * (1 - 0.92 * glob) * (1 - 0.55 * dim * (1 - back));
+        uniforms.uFieldA.value = 0.075 * (1 - 0.92 * glob) * (1 - 0.55 * dim * (1 - back));
         ringU.uA.value = 0.5 * (1 - 0.95 * glob) * (1 - 0.6 * dim * (1 - back));
         if (composer) composer.render(); else renderer.render(scene, camera);
       },

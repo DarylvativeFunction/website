@@ -87,8 +87,8 @@ const POINTS_VS = /* glsl */`
     float xs = flowU(aA) * 2.0 - 1.0;
     float pulse = pow(0.5 + 0.5 * sin(xs * 9.0 - uT * 2.2 + aB.w * 6.2831), 6.0);
 
-    float a = mix(0.30 + 0.50 * aB.w * aB.w, 0.88 * band, formness);
-    a = mix(a, 0.95, nameness);
+    float a = mix(0.22 + 0.42 * aB.w * aB.w, 0.88 * band, formness);
+    a = mix(a, 0.8, nameness);
     a *= 1.0 + uLoose * formness * 1.5 * pulse;
     a *= mix(1.0, 0.42, f);
     a *= mix(1.0, edgeOf(aA), formness);
@@ -363,7 +363,7 @@ export default {
         else { zn = r() * 2 - 1; k = Math.floor(r() * LAYERS); off = gauss() * 0.02; }
         aA[i * 4] = xn; aA[i * 4 + 1] = zn; aA[i * 4 + 2] = k; aA[i * 4 + 3] = off;
         aB[i * 4] = r(); aB[i * 4 + 1] = r(); aB[i * 4 + 2] = front ? 1 : 0; aB[i * 4 + 3] = r();
-        aFloat[i * 3] = gauss() * D.visW * 0.36;
+        aFloat[i * 3] = gauss() * Math.max(D.visW, D.visH * 1.1) * 0.34;
         aFloat[i * 3 + 1] = gauss() * D.visH * 0.34;
         aFloat[i * 3 + 2] = -460 + r() * 820;
         keys[i] = xn + (r() - 0.5) * 0.35;

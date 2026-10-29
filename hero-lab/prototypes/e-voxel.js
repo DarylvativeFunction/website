@@ -353,7 +353,7 @@ export default {
       ghostGroup = new THREE.Group();
       ghostGroup.add(ghost);
       ghostGroup.position.set(0, 0, -(narrow ? 120 : 260));
-      const gs = narrow ? 1.5 : 1.45;
+      const gs = narrow ? 1.1 : 1.45;
       ghostGroup.scale.setScalar(gs);
       scene.add(ghostGroup);
 

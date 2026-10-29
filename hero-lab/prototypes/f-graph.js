@@ -18,8 +18,8 @@ const CAT = [
   [0.42, 0.62, 0.88], [0.34, 0.76, 0.72], [0.84, 0.72, 0.42], [0.66, 0.80, 0.94],
   [0.64, 0.56, 0.86], [0.56, 0.78, 0.48], [0.78, 0.80, 0.84],
 ];
-const CLUSTER_C = [[-0.78, 0.30], [-0.50, -0.42], [-0.20, 0.38], [0.08, -0.30], [0.32, 0.42], [0.58, -0.22], [0.82, 0.28]];
-const RAMP = [[0.22, 0.28, 0.48], [0.18, 0.48, 0.60], [0.52, 0.76, 0.68], [0.96, 0.90, 0.68]];
+const CLUSTER_C = [[-0.80, 0.12], [-0.50, -0.52], [-0.36, 0.52], [-0.02, -0.08], [0.30, 0.56], [0.44, -0.50], [0.82, 0.04]];
+const RAMP = [[0.30, 0.38, 0.72], [0.14, 0.60, 0.74], [0.50, 0.86, 0.68], [1.0, 0.92, 0.64]];
 
 // ---------- geometry helpers -------------------------------------------------
 
@@ -63,7 +63,7 @@ function knnGrid(px, py, N, k) {
 }
 
 // Undirected, de-duplicated edge list with a length cut, plus BFS depth from `seeds`.
-function buildGraph(px, py, N, seeds, rand, lenMul) {
+function buildGraph(px, py, N, seeds, rand, lenMul, K) {
   const { nb, nd } = knnGrid(px, py, N, K);
   const kth = [];
   for (let i = 0; i < N; i++) kth.push(nd[i * K + 1]);
@@ -134,7 +134,7 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(np.xy, 0.0, 1.0);
   float live = m1 * (1.0 - m2);
   float fc = exp(-pow((uPulseC - aW.x) / uWc, 2.0)) * uGainC;
-  float ft = exp(-pow((uPulseT - aW.y) / uWt, 2.0)) * uGainT * m2;
+  float ft = exp(-pow((uPulseT - aW.y) / uWt, 2.0)) * uGainT * m2 * 0.25;
   float fl = clamp(fc + ft, 0.0, 1.0);
   float sc = exp(-pow((np.y - uScanY) / uScanW, 2.0)) * uScanOn * (1.0 - m1);
   float thr = uDensity * 1.05;
@@ -145,7 +145,7 @@ void main() {
   col = mix(col, vec3(${ACCENT.join(',')}), fl * 0.85);
   vCol = col;
   float dep = clamp(1.0 + (np.z - 1.0) * 7.0, 0.5, 1.3);
-  vA = uAlpha * vis * mix(1.0, dep, live) * (1.0 + 0.5 * sc);
+  vA = uAlpha * vis * mix(1.0, dep, live) * (1.0 + 0.5 * sc) * (1.0 - m2 * (1.0 - aMeta.w));
   gl_PointSize = uSize * uDpr * mix(1.0, np.z, live) * (1.0 + 0.9 * fl + 0.7 * sc) * (1.0 - 0.1 * m2);
 }`;
 
@@ -270,42 +270,66 @@ export default {
       const sec = { x0: w * (narrow ? 0.07 : 0.1), x1: w * (narrow ? 0.93 : 0.9) };
       const sH = narrow ? h * 0.30 : h * 0.40;
       sec.y0 = cy0 - sH / 2; sec.y1 = cy0 + sH / 2;
-      const emb = { cx: w / 2, cy: cy0, sx: w * (narrow ? 0.38 : 0.35), sy: h * (narrow ? 0.19 : 0.26) };
+      const emb = { cx: w / 2, cy: cy0, sx: w * (narrow ? 0.21 : 0.30), sy: h * (narrow ? 0.19 : 0.24) };
       G = { w, h, narrow, sec, emb };
 
       const r = rng(11);
       const gauss = () => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) * 1.73; };
       // layered porosity model
       const L = 16, base = [];
-      for (let l = 0; l < L; l++) base.push(clamp(0.5 + 0.22 * Math.sin(l * 0.85 + 1.0) + (r() - 0.5) * 0.4 + ((l === 5 || l === 11) ? 0.22 : 0), 0.04, 1));
+      for (let l = 0; l < L; l++) base.push(clamp(0.5 + 0.3 * Math.sin(l * 0.85 + 1.0) + (r() - 0.5) * 0.5 + ((l === 5 || l === 11) ? 0.3 : 0), 0.0, 1));
       const S = new Float32Array(N * 2), C = new Float32Array(N * 3), Tg = new Float32Array(N * 2), Meta = new Float32Array(N * 4), W = new Float32Array(N * 2);
       const prop = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         let u, d, f, tries = 0;
-        do { u = r(); d = r(); f = (d * L) % 1; tries++; } while ((f < 0.07 || f > 0.93) && tries < 8);
+        do { u = r(); d = r(); f = (d * L) % 1; tries++; } while ((f < 0.12 || f > 0.88) && tries < 10);
         const fold = 0.07 * Math.sin(u * 5.5 + d * 3.0) + 0.06 * (u - 0.5);
         const yy = sec.y0 + (d + fold * 0.9) * (sec.y1 - sec.y0);
         S[i * 2] = sec.x0 + u * (sec.x1 - sec.x0);
         S[i * 2 + 1] = yy;
         const l = Math.min(L - 1, Math.floor(d * L));
-        prop[i] = clamp(base[l] + 0.18 * (u - 0.5) * (1 - d) + gauss() * 0.045, 0, 1);
+        prop[i] = clamp(base[l] + 0.18 * (u - 0.5) * (1 - d) + gauss() * 0.03, 0, 1);
         Meta[i * 4] = r();
         Meta[i * 4 + 1] = prop[i];
       }
       // clusters = equal-count porosity classes (latent space groups similar rock)
       const order = Array.from({ length: N }, (_, i) => i).sort((a, b) => prop[a] - prop[b]);
       const cl = new Int32Array(N);
-      order.forEach((idx, rank) => { cl[idx] = Math.min(NCL - 1, Math.floor((rank / N) * NCL)); Meta[idx * 4 + 2] = cl[idx]; });
+      order.forEach((idx, rank) => { cl[idx] = Math.min(NCL - 1, Math.floor((rank / N) * NCL)); Meta[idx * 4 + 2] = cl[idx]; Meta[idx * 4 + 1] = 0.04 + 0.92 * (rank / N); });
       const ang = [0.4, -0.6, 0.9, -0.2, 0.7, -0.9, 0.1];
       for (let i = 0; i < N; i++) {
         const k = cl[i], wide = r() < 0.06 ? 2.4 : 1;
-        const a = gauss() * 0.13 * wide, b = gauss() * 0.07 * wide;
+        const a = gauss() * 0.15 * wide, b = gauss() * 0.085 * wide;
         const ca = Math.cos(ang[k]), sa = Math.sin(ang[k]);
         const nx = CLUSTER_C[k][0] + a * ca - b * sa, ny = CLUSTER_C[k][1] + a * sa + b * ca;
         C[i * 3] = emb.cx + nx * emb.sx; C[i * 3 + 1] = emb.cy + ny * emb.sy; C[i * 3 + 2] = gauss() * 120 + (k - 3) * 28;
       }
       // targets: x-sorted slabs matched to clusters in x-order of their centres
-      const tgt = sampleName(ctx.layout, N, { mode: 'mix', seed: 7 }).positions;
+      const pool = sampleName(ctx.layout, low ? 16000 : 36000, { mode: 'mix', seed: 7 });
+      const sp = Math.max(2.8, ctx.layout.fontSize * 0.03), cs = sp / Math.SQRT2, gw = Math.ceil(w / cs) + 1;
+      const gridP = new Int32Array(gw * (Math.ceil(h / cs) + 1)).fill(-1);
+      const cand = Array.from({ length: pool.edge.length }, (_, i) => i);
+      for (let s2 = cand.length - 1; s2 > 0; s2--) { const j = Math.floor(r() * (s2 + 1)); [cand[s2], cand[j]] = [cand[j], cand[s2]]; }
+      cand.sort((a, b) => pool.edge[b] - pool.edge[a] || 0);
+      const slots = [];
+      for (const ci of cand) {
+        if (slots.length >= N * 0.9) break;
+        const x = pool.positions[ci * 2], y = pool.positions[ci * 2 + 1];
+        const gx = Math.floor(x / cs), gy = Math.floor(y / cs);
+        let ok = true;
+        for (let yy = gy - 2; yy <= gy + 2 && ok; yy++) for (let xx = gx - 2; xx <= gx + 2; xx++) {
+          if (xx < 0 || yy < 0 || xx >= gw) continue;
+          const o = gridP[yy * gw + xx]; if (o < 0) continue;
+          if ((slots[o][0] - x) ** 2 + (slots[o][1] - y) ** 2 < sp * sp) { ok = false; break; }
+        }
+        if (ok) { gridP[gy * gw + gx] = slots.length; slots.push([x, y]); }
+      }
+      const M = slots.length;
+      const tgt = new Float32Array(N * 2), tOn = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        const sl = i < M ? slots[i] : slots[Math.floor(r() * M)];
+        tgt[i * 2] = sl[0]; tgt[i * 2 + 1] = sl[1]; tOn[i] = i < M ? 1 : 0;
+      }
       const tix = Array.from({ length: N }, (_, i) => i).sort((a, b) => tgt[a * 2] - tgt[b * 2]);
       const corder = Array.from({ length: NCL }, (_, k) => k).sort((a, b) => CLUSTER_C[a][0] - CLUSTER_C[b][0]);
       const members = Array.from({ length: NCL }, () => []);
@@ -314,7 +338,7 @@ export default {
       for (const k of corder) {
         const slab = tix.slice(cursor, cursor + members[k].length); cursor += members[k].length;
         for (let s = slab.length - 1; s > 0; s--) { const j = Math.floor(r() * (s + 1)); [slab[s], slab[j]] = [slab[j], slab[s]]; }
-        members[k].forEach((node, s) => { Tg[node * 2] = tgt[slab[s] * 2]; Tg[node * 2 + 1] = tgt[slab[s] * 2 + 1]; });
+        members[k].forEach((node, s) => { Tg[node * 2] = tgt[slab[s] * 2]; Tg[node * 2 + 1] = tgt[slab[s] * 2 + 1]; Meta[node * 4 + 3] = tOn[slab[s]]; });
       }
 
       // graphs
@@ -328,9 +352,14 @@ export default {
         seedsC.push(best);
       }
       const minTx = Math.min(...tx);
-      const seedsT = []; for (let i = 0; i < N; i++) if (tx[i] < minTx + 6) seedsT.push(i);
-      const gC = buildGraph(cx, cyv, N, seedsC, r, 2.4);
-      const gT = buildGraph(tx, ty, N, seedsT, r, 2.3);
+      const gC = buildGraph(cx, cyv, N, seedsC, r, 2.4, K);
+      const ids = []; for (let i = 0; i < N; i++) if (Meta[i * 4 + 3] > 0) ids.push(i);
+      const sx2 = Float32Array.from(ids, (i) => tx[i]), sy2 = Float32Array.from(ids, (i) => ty[i]);
+      const seedsL = []; ids.forEach((i, li) => { if (tx[i] < minTx + 6) seedsL.push(li); });
+      const gT = buildGraph(sx2, sy2, ids.length, seedsL, r, 2.2, 4);
+      gT.ea = gT.ea.map((v) => ids[v]); gT.eb = gT.eb.map((v) => ids[v]);
+      const depthG = new Float32Array(N).fill(gT.maxD * 2); ids.forEach((i, li) => { depthG[i] = gT.depth[li]; });
+      gT.depth = depthG;
       maxDC = gC.maxD; G.maxDT = gT.maxD; G.gC = gC; G.gT = gT;
       for (let i = 0; i < N; i++) { W[i * 2] = gC.depth[i]; W[i * 2 + 1] = gT.depth[i]; }
 
@@ -357,7 +386,7 @@ export default {
         transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
         uniforms: {
           ...shared,
-          uSize: { value: narrow ? 1.7 : 2.1 }, uDpr: { value: dpr }, uAlpha: { value: 1 },
+          uSize: { value: narrow ? 2.0 : 2.5 }, uDpr: { value: dpr }, uAlpha: { value: 1 },
           uScanY: { value: 0 }, uScanW: { value: sH * 0.02 + 3 }, uScanOn: { value: 0 },
           uPulseC: { value: -99 }, uPulseT: { value: -99 }, uGainC: { value: 0 }, uGainT: { value: 0 },
           uWc: { value: 0.7 }, uWt: { value: 14 },
@@ -450,7 +479,7 @@ export default {
         o2.textAlign = 'left'; o2.fillText('0.30', bx + bw + 6, by + 4);
       }
       if (inEmb > 0.01) {
-        const x0 = emb.cx - emb.sx * 1.12, x1 = emb.cx + emb.sx * 1.12, y0 = emb.cy - emb.sy * 1.2, y1 = emb.cy + emb.sy * 1.2;
+        const x0 = emb.cx - emb.sx * 1.4, x1 = emb.cx + emb.sx * 1.4, y0 = emb.cy - emb.sy * 1.3, y1 = emb.cy + emb.sy * 1.3;
         o2.strokeStyle = ink(0.26 * inEmb); o2.fillStyle = ink(0.4 * inEmb);
         o2.beginPath(); o2.moveTo(x0, y0); o2.lineTo(x0, y1); o2.lineTo(x1, y1); o2.stroke();
         o2.beginPath();
@@ -464,8 +493,8 @@ export default {
       }
       // figure caption
       const cap = (s, a) => { if (a > 0.01) { o2.fillStyle = ink(0.5 * a); o2.textAlign = 'left'; o2.fillText(s, sec.x0 - 10, (narrow ? G.sec.y0 - 36 : sec.y0 - 18)); } };
-      const capY = narrow ? Math.max(18, sec.y0 - 36) : Math.max(22, emb.cy - emb.sy * 1.2 - 20);
-      const capX = narrow ? sec.x0 - 10 : emb.cx - emb.sx * 1.12;
+      const capY = narrow ? Math.max(18, sec.y0 - 36) : Math.max(22, emb.cy - emb.sy * 1.3 - 20);
+      const capX = narrow ? sec.x0 - 10 : emb.cx - emb.sx * 1.4;
       const caption = (s, a) => { if (a > 0.01) { o2.fillStyle = ink(0.5 * a); o2.textAlign = 'left'; o2.fillText(s, capX, capY); } };
       void cap;
       const c1 = 1 - smooth(t, 2.4, 3.2), c2 = smooth(t, 2.8, 3.6) * (1 - smooth(t, 4.6, 5.2));
@@ -513,7 +542,7 @@ export default {
         shared.uWhite.value = smooth(convP, 0.55, 1.0);
         shared.uDensity.value = 1 - 0.62 * readEnv;
 
-        nu.uAlpha.value = 0.95 - 0.62 * readEnv;
+        nu.uAlpha.value = 1.0 - 0.66 * readEnv;
         // scan cursor through the section at the start
         const sc = ramp(t, 0.35, 2.15);
         nu.uScanOn.value = Math.sin(Math.PI * sc) * (sc > 0 && sc < 1 ? 1 : 0) * 0.9;
@@ -522,7 +551,7 @@ export default {
         const rateC = (maxDC + 1) / 1.6, perC = maxDC + 5;
         const tpC = t - 4.9;
         nu.uPulseC.value = tpC > 0 ? (tpC * rateC) % perC : -99;
-        const gC = smooth(t, 4.9, 5.4) * (1 - smooth(convP, 0.0, 0.5)) + 0.35 * readEnv * (1 - smooth(t, OUT, OUT + 0.8));
+        const gC = smooth(t, 4.9, 5.4) * (1 - smooth(convP, 0.0, 0.5)) + 0.12 * readEnv * (1 - smooth(t, OUT, OUT + 0.5));
         nu.uGainC.value = gC;
         // final cascade across the letters
         const rateT = (G.maxDT + 1) / 1.5;
@@ -532,18 +561,18 @@ export default {
 
         const [ec, et] = edgeSets;
         ec.mat.uniforms.uGrow.value = ramp(t, 3.9, 5.6);
-        ec.mat.uniforms.uAlpha.value = (G.narrow ? 0.2 : 0.17) * smooth(t, 3.9, 4.4) * (1 - smooth(convP, 0.0, 0.4)) * (1 - 0.45 * readEnv) * (1 - smooth(t, OUT, OUT + 1.1));
+        ec.mat.uniforms.uAlpha.value = (G.narrow ? 0.34 : 0.3) * smooth(t, 3.9, 4.4) * (1 - smooth(convP, 0.0, 0.4)) * (1 - 0.45 * readEnv) * (1 - smooth(t, OUT, OUT + 1.1));
         ec.mat.uniforms.uPulse.value = nu.uPulseC.value;
         ec.mat.uniforms.uGain.value = gC;
-        ec.mat.uniforms.uPulseVis.value = 4.5;
+        ec.mat.uniforms.uPulseVis.value = 2.2;
         ec.mesh.visible = ec.mat.uniforms.uAlpha.value > 0.001 || gC > 0.001;
 
         et.mat.uniforms.uGrow.value = ramp(t, 6.7, na - 0.2);
         const typeFade = 1 - smooth(t, na + 0.35, na + 1.0);
-        et.mat.uniforms.uAlpha.value = 0.42 * smooth(convP, 0.5, 0.95) * typeFade;
+        et.mat.uniforms.uAlpha.value = 0.55 * smooth(convP, 0.5, 0.95) * typeFade;
         et.mat.uniforms.uPulse.value = nu.uPulseT.value;
         et.mat.uniforms.uGain.value = nu.uGainT.value;
-        et.mat.uniforms.uPulseVis.value = 1.4;
+        et.mat.uniforms.uPulseVis.value = 0.5;
         et.mesh.visible = et.mat.uniforms.uAlpha.value > 0.001 || nu.uGainT.value > 0.001;
         // edge sets share cluster tint/white uniforms through `shared`
 
