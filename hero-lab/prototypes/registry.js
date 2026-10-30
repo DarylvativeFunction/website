@@ -9,4 +9,6 @@ export const PROTOTYPES = [
   { id: 'D', name: 'Flow-Path Reveal', short: 'Flow-Path', load: () => import('./d-flowpath.js') },
   { id: 'E', name: 'Voxel Collapse', short: 'Voxel', load: () => import('./e-voxel.js') },
   { id: 'F', name: 'Graph Learning', short: 'Graph', load: () => import('./f-graph.js') },
+  // Earlier cuts kept for before/after comparison (side by side). Not in the six-up grid.
+  { id: 'A1', name: 'Cinematic Reservoir (previous cut)', short: 'A · prev', archived: true, load: () => import('./a-reservoir-v1.js') },
 ];

@@ -54,6 +54,7 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 }
 .tab b { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--faint); }
 .tab:hover { color: var(--fg); }
+.tab.arch { margin-left: 8px; border-left: 1px solid var(--hair-2); font-size: 12px; opacity: 0.7; }
 .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent-on-dark); }
 .tab[aria-selected="true"] b { color: var(--accent-on-dark); }
 .tab .fav { color: #E0B04A; font-size: 11px; }

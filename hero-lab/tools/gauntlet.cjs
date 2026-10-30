@@ -20,7 +20,7 @@ const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '../..');
 const args = process.argv.slice(2);
 const flag = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const ids = args.filter((a, i) => /^[A-F]$/.test(a) && !String(args[i - 1] || '').startsWith('--'));
+const ids = args.filter((a, i) => /^[A-Z]\d?$/.test(a) && !String(args[i - 1] || '').startsWith('--'));
 const mobile = args.includes('--mobile');
 const W = Number(flag('--w', mobile ? 390 : 1440));
 const H = Number(flag('--h', mobile ? 844 : 900));

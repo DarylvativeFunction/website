@@ -47,6 +47,9 @@ function injectStyle() {
   font-kerning: normal; font-feature-settings: "kern" 1; -webkit-font-smoothing: antialiased; will-change: transform, opacity; }
 .hl-reveal .hl-word i.bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
 .hl-reveal .hl-yijin { color: var(--hl-yijin, rgba(244,244,242,0.62)); }
+.hl-reveal.hl-gradient .hl-word { color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(180deg, var(--hl-g0) 8%, var(--hl-g1) 92%); }
+.hl-reveal.hl-gradient .hl-yijin { background-image: linear-gradient(180deg, var(--hl-y0) 8%, var(--hl-y1) 92%); }
 .hl-reveal .hl-sub { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: min(92%, 980px);
   text-align: center; font-family: ${MONO_FAMILY}; text-transform: uppercase; color: var(--hl-sub, rgba(244,244,242,0.72));
   line-height: 1.9; text-wrap: balance; }
@@ -72,6 +75,16 @@ export function createReveal(container, opts = {}) {
 
   const el = document.createElement('div');
   el.className = 'hl-reveal';
+  // opts.gradient: { name: [top, bottom], yijin: [top, bottom] } renders the name as light-lit
+  // gradient type (background-clip: text). Glow is dropped there: a text-shadow would show
+  // through the transparent fill.
+  const grad = opts.gradient;
+  if (grad) {
+    el.classList.add('hl-gradient');
+    el.style.setProperty('--hl-g0', grad.name[0]); el.style.setProperty('--hl-g1', grad.name[1]);
+    const yj = grad.yijin || grad.name;
+    el.style.setProperty('--hl-y0', yj[0]); el.style.setProperty('--hl-y1', yj[1]);
+  }
   el.style.setProperty('--hl-name', c.name);
   el.style.setProperty('--hl-yijin', c.yijin);
   el.style.setProperty('--hl-sub', c.sub);
@@ -126,8 +139,8 @@ export function createReveal(container, opts = {}) {
 
     if (tl) tl.kill();
     const W = L.words;
-    const glowOn = `0 0 ${Math.round(L.fontSize * 0.35)}px ${c.glow}`;
-    const glowOff = `0 0 ${Math.round(L.fontSize * 0.35)}px rgba(0,0,0,0)`;
+    const glowOn = grad ? 'none' : `0 0 ${Math.round(L.fontSize * 0.35)}px ${c.glow}`;
+    const glowOff = grad ? 'none' : `0 0 ${Math.round(L.fontSize * 0.35)}px rgba(0,0,0,0)`;
     const f3 = { force3D: false };
 
     const hidden = { opacity: 0, filter: 'blur(10px)', textShadow: glowOn };

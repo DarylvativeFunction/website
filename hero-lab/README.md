@@ -54,10 +54,12 @@ export default {
   duration: 18,          // seconds per loop
   nameAt: 9.2,           // "Daryl Tan" fully formed by the prototype's material
   nameWeight: 700,       // Archivo weight for both the material and the HTML (400/600/700/800)
+  nameTracking: -0.028,  // optional letter-spacing in em (default -0.028)
   phases: [              // the prototype's own narrative, contiguous from 0 to nameAt
     { label: 'Strata', start: 0, end: 2.4 }, ...
   ],
-  reveal: { colors: { name, yijin, sub, accent, rule, glow } },  // optional CSS colors
+  reveal: { colors: { name, yijin, sub, accent, rule, glow },     // optional CSS colors
+            gradient: { name: [top, bottom], yijin: [top, bottom] } }, // optional lit gradient type
   posterTime: 13,        // optional: frame shown under prefers-reduced-motion (must fall in timing.read)
   create(ctx) { ...; return { update(t, dt), resize(ctx), dispose(), stats } },
 };

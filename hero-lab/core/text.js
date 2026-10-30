@@ -51,12 +51,13 @@ function glyphRun(word, fs, ls) {
  *   words.yijin              - x1 only (it appears in place)
  *   baseline, capHeight, fontSize, subtitle block position.
  */
-export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47 } = {}) {
+export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47, tracking = TRACKING_EM } = {}) {
+  const TR = tracking;
   const probe = 100;
   mctx.font = `${weight} ${probe}px ${FONT_FAMILY}`;
-  const lsP = TRACKING_EM * probe;
+  const lsP = TR * probe;
   const em = (s) => glyphRun(s, probe, lsP).width / probe;
-  const space = mctx.measureText(' ').width / probe + TRACKING_EM;
+  const space = mctx.measureText(' ').width / probe + TR;
   const eD = em(NAME.first), eY = em(NAME.middle), eT = em(NAME.last);
   const fullEm = eD + space + eY + space + eT;
 
@@ -64,7 +65,7 @@ export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47 } 
   const maxW = w * (narrow ? 0.9 : 0.74);
   const fontSize = Math.max(18, Math.min(maxW / fullEm, h * 0.19, 176) * scale);
   const fs = fontSize;
-  const ls = TRACKING_EM * fs;
+  const ls = TR * fs;
 
   mctx.font = `${weight} ${fs}px ${FONT_FAMILY}`;
   const runD = glyphRun(NAME.first, fs, ls);
@@ -89,7 +90,7 @@ export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47 } 
   const subTop = baseline + descent + Math.max(18, fs * 0.32);
 
   return {
-    w, h, weight, fontSize: fs, tracking: ls, trackingEm: TRACKING_EM,
+    w, h, weight, fontSize: fs, tracking: ls, trackingEm: TR,
     font: `${weight} ${fs}px ${FONT_FAMILY}`,
     baseline, capHeight, descent,
     centerX: w / 2, centerY: baseline - capHeight / 2,

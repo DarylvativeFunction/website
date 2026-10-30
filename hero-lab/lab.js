@@ -14,6 +14,7 @@ const params = new URLSearchParams(location.search);
 const reduceMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const STORE_KEY = 'heroLab.v1';
 const IDS = PROTOTYPES.map((p) => p.id);
+const MAIN_IDS = PROTOTYPES.filter((p) => !p.archived).map((p) => p.id);
 const CRITERIA = [
   ['visual', 'Visual quality'],
   ['smooth', 'Transition smoothness'],
@@ -101,7 +102,7 @@ class Viewport {
       height: h,
       quality: state.mode === 'grid' ? 'low' : state.quality,
       reducedMotion: reduceMotion,
-      layout: computeLayout(w, h, { weight: def.nameWeight ?? 700 }),
+      layout: computeLayout(w, h, { weight: def.nameWeight ?? 700, tracking: def.nameTracking }),
       timing: this.timing,
     };
     try {
@@ -136,7 +137,7 @@ class Viewport {
     const { w, h } = this.size();
     if (w === this.ctx.width && h === this.ctx.height) return;
     this.ctx.width = w; this.ctx.height = h;
-    this.ctx.layout = computeLayout(w, h, { weight: this.def.nameWeight ?? 700 });
+    this.ctx.layout = computeLayout(w, h, { weight: this.def.nameWeight ?? 700, tracking: this.def.nameTracking });
     try { this.inst.resize?.(this.ctx); } catch (err) { console.error(err); }
     this.reveal?.setLayout(this.ctx.layout, this.timing);
     dirty = true;
@@ -208,7 +209,7 @@ function buildStage() {
   stage.style.setProperty('--cols', state.mode === 'single' ? 1 : state.mode === 'compare' ? 2 : 3);
   const ids = state.mode === 'single' ? [state.id]
     : state.mode === 'compare' ? [state.id, state.compareWith]
-    : IDS;
+    : MAIN_IDS;
   ids.forEach((id, i) => {
     const vp = new Viewport(stage, id, { compareSlot: state.mode === 'compare' && i === 1 });
     viewports.push(vp);
@@ -272,7 +273,7 @@ function pressSeg(sel, key, val) {
 function renderTabs() {
   $('#tabs').innerHTML = PROTOTYPES.map((p) => {
     const fav = store.scores[p.id]?.star ? '<span class="fav" aria-label="shortlisted">★</span>' : '';
-    return `<button class="tab" role="tab" data-id="${p.id}" aria-selected="${p.id === state.id}"><b>${p.id}</b>${p.short || p.name}${fav}</button>`;
+    return `<button class="tab${p.archived ? ' arch' : ''}" role="tab" data-id="${p.id}" aria-selected="${p.id === state.id}"><b>${p.id}</b>${p.short || p.name}${fav}</button>`;
   }).join('');
 }
 
@@ -309,7 +310,7 @@ function average(scores) {
 
 function renderBoard() {
   const src = state.boardSrc;
-  const rows = PROTOTYPES.map((p) => {
+  const rows = PROTOTYPES.filter((p) => !p.archived).map((p) => {
     const sc = src === 'you' ? store.scores[p.id] : REVIEW.scores?.[p.id];
     return { ...p, avg: average(sc), star: src === 'you' && !!store.scores[p.id]?.star };
   }).sort((a, b) => b.avg - a.avg || Number(b.star) - Number(a.star));
@@ -478,7 +479,7 @@ document.addEventListener('keydown', (e) => {
   const v = primary();
   if (e.key === ' ') { e.preventDefault(); setPlaying(!state.playing); }
   else if (e.key === 'r' || e.key === 'R') replay();
-  else if (e.key >= '1' && e.key <= '6') select(IDS[Number(e.key) - 1]);
+  else if (e.key >= '1' && e.key <= '6') select(MAIN_IDS[Number(e.key) - 1]);
   else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
     e.preventDefault();
     const step = (e.shiftKey ? 0.05 : 0.5) * (e.key === 'ArrowRight' ? 1 : -1);
