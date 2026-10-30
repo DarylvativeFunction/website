@@ -47,6 +47,8 @@ function injectStyle() {
   font-kerning: normal; font-feature-settings: "kern" 1; -webkit-font-smoothing: antialiased; will-change: transform, opacity; }
 .hl-reveal .hl-word i.bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
 .hl-reveal .hl-yijin { color: var(--hl-yijin, rgba(244,244,242,0.62)); }
+.hl-reveal .hl-dot { color: var(--hl-accent, #C8364C); }
+.hl-reveal.hl-gradient .hl-dot { color: var(--hl-accent, #C8364C); background: none; }
 .hl-reveal.hl-gradient .hl-word { color: transparent; -webkit-background-clip: text; background-clip: text;
   background-image: linear-gradient(180deg, var(--hl-g0) 8%, var(--hl-g1) 92%); }
 .hl-reveal.hl-gradient .hl-yijin { background-image: linear-gradient(180deg, var(--hl-y0) 8%, var(--hl-y1) 92%); }
@@ -95,6 +97,7 @@ export function createReveal(container, opts = {}) {
     <div class="hl-word hl-daryl" aria-hidden="true">Daryl<i class="bl"></i></div>
     <div class="hl-word hl-yijin" aria-hidden="true">Yi Jin<i class="bl"></i></div>
     <div class="hl-word hl-tan" aria-hidden="true">Tan<i class="bl"></i></div>
+    <div class="hl-word hl-dot" aria-hidden="true">.<i class="bl"></i></div>
     <div class="hl-rule" aria-hidden="true"></div>
     <p class="hl-sub"></p>`;
   container.appendChild(el);
@@ -102,14 +105,19 @@ export function createReveal(container, opts = {}) {
   const daryl = el.querySelector('.hl-daryl');
   const yijin = el.querySelector('.hl-yijin');
   const tan = el.querySelector('.hl-tan');
+  const dotEl = el.querySelector('.hl-dot');
   const rule = el.querySelector('.hl-rule');
   const sub = el.querySelector('.hl-sub');
-  const words = [daryl, yijin, tan];
+  const words = [daryl, yijin, tan, dotEl];
 
   let tl = null;
   let lastT = 0;
 
   function setLayout(L, T) {
+    daryl.firstChild.nodeValue = L.words.daryl.text;
+    yijin.firstChild.nodeValue = L.words.yijin.text;
+    tan.firstChild.nodeValue = L.words.tan.text;
+    dotEl.style.display = L.words.dot ? '' : 'none';
     for (const w of words) {
       w.style.font = `${L.weight} ${L.fontSize}px ${FONT_FAMILY}`;
       w.style.lineHeight = '1';
@@ -150,6 +158,7 @@ export function createReveal(container, opts = {}) {
     gsap.set(yijin, { x: W.yijin.x1, y: y + L.fontSize * 0.06, opacity: 0, clipPath: 'inset(-25% 50% -35% 50%)', ...f3 });
     gsap.set(rule, { scaleX: 0, opacity: 0 });
     gsap.set(sub, { y: subTop + 10, opacity: 0, ...f3 });
+    if (L.words.dot) gsap.set(dotEl, { x: L.words.dot.x1, y: y - L.fontSize * 0.22, opacity: 0, ...f3 });
 
     // Every tween is an explicit fromTo so any seek order renders the same frame.
     const ft = (target, from, to, at) => tl.fromTo(target, from, { ...to, immediateRender: false }, at);
@@ -173,9 +182,12 @@ export function createReveal(container, opts = {}) {
     ft(rule, { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: (b1 - b0) * 1.1, ease: 'power3.inOut' }, b0 - 0.15);
     ft(sub, { y: subTop + 10, opacity: 0 }, { y: subTop, opacity: 1, duration: b1 - b0 }, b0);
 
+    // the full stop drops in with the subtitle, as on the homepage hero
+    if (L.words.dot) ft(dotEl, { opacity: 0, y: y - L.fontSize * 0.22 }, { opacity: 1, y, duration: 0.55, ease: 'power3.out' }, b0 - 0.1);
+
     const [o0, o1] = T.out;
     ft([sub, rule], { opacity: 1 }, { opacity: 0, duration: (o1 - o0) * 0.6, ease: 'power1.in' }, o0);
-    ft([daryl, yijin, tan], { opacity: 1, filter: 'blur(0px)', y }, { opacity: 0, filter: 'blur(8px)', y: y - L.fontSize * 0.05, duration: o1 - o0 - 0.22, ease: 'power2.in', stagger: 0.06 }, o0 + 0.1);   // last word ends exactly at o1
+    ft([daryl, yijin, tan, ...(L.words.dot ? [dotEl] : [])], { opacity: 1, filter: 'blur(0px)', y }, { opacity: 0, filter: 'blur(8px)', y: y - L.fontSize * 0.05, duration: o1 - o0 - 0.22, ease: 'power2.in', stagger: 0.06 }, o0 + 0.1);   // last word ends exactly at o1
     // pad to full cycle so seeking near the end stays settled
     tl.set({}, {}, T.duration);
     tl.time(lastT, true);

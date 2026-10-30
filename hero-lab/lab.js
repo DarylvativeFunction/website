@@ -102,7 +102,7 @@ class Viewport {
       height: h,
       quality: state.mode === 'grid' ? 'low' : state.quality,
       reducedMotion: reduceMotion,
-      layout: computeLayout(w, h, { weight: def.nameWeight ?? 700, tracking: def.nameTracking }),
+      layout: computeLayout(w, h, { weight: def.nameWeight ?? 700, tracking: def.nameTracking, upper: !!def.nameUpper, dot: !!def.nameDot }),
       timing: this.timing,
     };
     try {
@@ -137,7 +137,7 @@ class Viewport {
     const { w, h } = this.size();
     if (w === this.ctx.width && h === this.ctx.height) return;
     this.ctx.width = w; this.ctx.height = h;
-    this.ctx.layout = computeLayout(w, h, { weight: this.def.nameWeight ?? 700, tracking: this.def.nameTracking });
+    this.ctx.layout = computeLayout(w, h, { weight: this.def.nameWeight ?? 700, tracking: this.def.nameTracking, upper: !!this.def.nameUpper, dot: !!this.def.nameDot });
     try { this.inst.resize?.(this.ctx); } catch (err) { console.error(err); }
     this.reveal?.setLayout(this.ctx.layout, this.timing);
     dirty = true;

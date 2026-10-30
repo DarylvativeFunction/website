@@ -51,15 +51,21 @@ function glyphRun(word, fs, ls) {
  *   words.yijin              - x1 only (it appears in place)
  *   baseline, capHeight, fontSize, subtitle block position.
  */
-export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47, tracking = TRACKING_EM } = {}) {
+export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47, tracking = TRACKING_EM, upper = false, dot = false } = {}) {
+  // upper: set the name in capitals (the homepage's display style).
+  // dot: a full stop after the last name in the settled name (the homepage's crimson period);
+  //      it is part of the full-name width so the settled name stays centred.
   const TR = tracking;
+  const cs = (x) => (upper ? x.toUpperCase() : x);
+  const T1 = cs(NAME.first), T2 = cs(NAME.middle), T3 = cs(NAME.last);
   const probe = 100;
   mctx.font = `${weight} ${probe}px ${FONT_FAMILY}`;
   const lsP = TR * probe;
   const em = (s) => glyphRun(s, probe, lsP).width / probe;
   const space = mctx.measureText(' ').width / probe + TR;
-  const eD = em(NAME.first), eY = em(NAME.middle), eT = em(NAME.last);
-  const fullEm = eD + space + eY + space + eT;
+  const eD = em(T1), eY = em(T2), eT = em(T3);
+  const eDot = dot ? mctx.measureText('.').width / probe + TR : 0;
+  const fullEm = eD + space + eY + space + eT + eDot;
 
   const narrow = w < 700;
   const maxW = w * (narrow ? 0.9 : 0.74);
@@ -68,18 +74,18 @@ export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47, t
   const ls = TR * fs;
 
   mctx.font = `${weight} ${fs}px ${FONT_FAMILY}`;
-  const runD = glyphRun(NAME.first, fs, ls);
-  const runY = glyphRun(NAME.middle, fs, ls);
-  const runT = glyphRun(NAME.last, fs, ls);
+  const runD = glyphRun(T1, fs, ls);
+  const runY = glyphRun(T2, fs, ls);
+  const runT = glyphRun(T3, fs, ls);
+  const dotW = dot ? mctx.measureText('.').width : 0;
   const sp = space * fs;
 
   const capM = mctx.measureText('DTY');
   const capHeight = capM.actualBoundingBoxAscent;
-  const descM = mctx.measureText('y');
-  const descent = descM.actualBoundingBoxDescent;
+  const descent = Math.max(0, ...[T1, T2, T3].map((x) => mctx.measureText(x).actualBoundingBoxDescent));
 
   const shortW = runD.width + sp + runT.width;
-  const fullW = runD.width + sp + runY.width + sp + runT.width;
+  const fullW = runD.width + sp + runY.width + sp + runT.width + (dot ? ls + dotW : 0);
   const sx = (w - shortW) / 2;
   const fx = (w - fullW) / 2;
 
@@ -95,10 +101,12 @@ export function computeLayout(w, h, { weight = 700, scale = 1, centerY = 0.47, t
     baseline, capHeight, descent,
     centerX: w / 2, centerY: baseline - capHeight / 2,
     words: {
-      daryl: { text: NAME.first, xs: runD.xs, width: runD.width, x0: sx, x1: fx },
-      yijin: { text: NAME.middle, xs: runY.xs, width: runY.width, x1: fx + runD.width + sp },
-      tan: { text: NAME.last, xs: runT.xs, width: runT.width, x0: sx + runD.width + sp, x1: fx + runD.width + sp + runY.width + sp },
+      daryl: { text: T1, xs: runD.xs, width: runD.width, x0: sx, x1: fx },
+      yijin: { text: T2, xs: runY.xs, width: runY.width, x1: fx + runD.width + sp },
+      tan: { text: T3, xs: runT.xs, width: runT.width, x0: sx + runD.width + sp, x1: fx + runD.width + sp + runY.width + sp },
+      ...(dot ? { dot: { text: '.', xs: [0], width: dotW, x1: fx + runD.width + sp + runY.width + sp + runT.width + ls } } : {}),
     },
+    upper,
     // bounding box of "Daryl Tan" in container px (cap top to descender)
     shortBox: { x: sx, y: baseline - capHeight, w: shortW, h: capHeight + descent },
     fullBox: { x: fx, y: baseline - capHeight, w: fullW, h: capHeight + descent },
@@ -130,7 +138,7 @@ export function rasterizeName(layout, { which = 'short', res = 0.5, pad = 0 } = 
   const W = layout.words;
   const parts = which === 'short'
     ? [[W.daryl, W.daryl.x0], [W.tan, W.tan.x0]]
-    : [[W.daryl, W.daryl.x1], [W.yijin, W.yijin.x1], [W.tan, W.tan.x1]];
+    : [[W.daryl, W.daryl.x1], [W.yijin, W.yijin.x1], [W.tan, W.tan.x1], ...(W.dot ? [[W.dot, W.dot.x1]] : [])];
   for (const [word, x] of parts) {
     drawWord(ctx, word, x, layout.baseline, res);
     if (pad > 0) for (let i = 0; i < word.text.length; i++) ctx.strokeText(word.text[i], (x + word.xs[i]) * res, layout.baseline * res);
