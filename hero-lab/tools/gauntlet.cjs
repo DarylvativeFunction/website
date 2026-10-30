@@ -109,7 +109,8 @@ const server = http.createServer((req, res) => {
     const align = await page.evaluate(() => {
       const box = (s) => document.querySelector(s).getBoundingClientRect();
       const d = box('.hl-daryl'), y = box('.hl-yijin'), t = box('.hl-tan'), sub = box('.hl-sub'), vp = document.querySelector('.vp-host').getBoundingClientRect();
-      const left = d.left, right = t.right;
+      const dotEl = document.querySelector('.hl-dot'); const dotOn = dotEl && dotEl.style.display !== 'none';
+      const left = d.left, right = dotOn ? dotEl.getBoundingClientRect().right : t.right;
       return {
         centerOffsetPx: +(((left + right) / 2) - (vp.left + vp.width / 2)).toFixed(1),
         gaps: [+(y.left - d.right).toFixed(1), +(t.left - y.right).toFixed(1)],

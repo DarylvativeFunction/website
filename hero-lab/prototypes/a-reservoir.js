@@ -1,13 +1,13 @@
 // a-reservoir.js - Prototype A, "Cinematic Reservoir" (premium art-direction pass).
 //
-// A lit cut-away block of an anticline trap, shot like a product film: graphite
-// ground with an off-axis key light, filmic tone mapping, depth fog, a long lens
+// A lit cut-away block of an anticline trap, shot like a product film in the homepage
+// brand (paper greys on #0D0E10, crimson only for the oil column and markers):
+// a neutral off-axis key light, filmic tone mapping, depth fog, a long lens
 // with fake depth of field (rack focus front face -> crest -> network -> name),
 // highlight-only bloom and fine grain. One continuous move: a corner-point grid
 // sweeps out from the crest -> its cell centres become a k-NN network with a few
-// labelled hubs -> the nodes stream (velocity-streaked) onto the shared
+// crimson-ringed hubs -> the nodes stream (velocity-streaked) onto the shared
 // "Daryl Tan" glyphs, left to right, as the camera settles into its canonical pose.
-// A small editorial HUD (chapter index, readouts, coordinates) frames the film.
 //
 // Everything is a pure function of t: geometry is built once per size, every
 // motion is a shader morph driven by uniforms computed from t.
@@ -15,15 +15,14 @@
 import * as THREE from 'three';
 import { EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } from 'three/addons';
 import { createRenderer, pixelToPlane, ramp, clamp, lerp, easeInOutCubic, easeInOutSine, rng } from '../core/stage.js';
-import { sampleName, rasterizeName, MONO_FAMILY } from '../core/text.js';
+import { sampleName, rasterizeName } from '../core/text.js';
 
 const NAME_AT = 7.0;
 const DURATION = 15.7;
 const FOV = 27;          // longer lens, camera further back (telephoto compression)
 const CAM_Z = 24;
 
-const HUD = true;            // editorial overlay (chapter index, readouts, coordinates)
-const AMBIENT_FLOW = true;   // amber fluid drifting inside the oil column
+const AMBIENT_FLOW = true;   // crimson fluid drifting inside the oil column
 const FLOW_CYCLES = 6;       // particle lifecycles per loop (integer keeps the loop seamless)
 const NAME_REPLICAS = 3;     // particles per network node in the formed name
 const READ_ALPHA = 0.22;      // strata level behind the text during the read phase
@@ -40,19 +39,22 @@ const HZ = [
 ];
 const OWC = -0.12; // oil-water contact
 
-// Linear HDR palette (tone-mapped at the end). Mostly graphite / silver-white.
+// Linear HDR palette (tone-mapped at the end), from the homepage brand: paper / greys and
+// ONE accent, crimson, reserved for the oil-saturated sand body and a few markers.
 const LAYER_COL = [
-  [0.60, 0.64, 0.70],  // overburden
-  [0.46, 0.51, 0.58],  // cap rock
-  [0.66, 0.70, 0.75],  // reservoir sand (water leg)
-  [0.42, 0.46, 0.52],  // shale
-  [0.56, 0.53, 0.50],  // basement
+  [0.62, 0.62, 0.60],  // overburden (paper)
+  [0.40, 0.40, 0.40],  // cap rock (grey)
+  [0.68, 0.68, 0.66],  // reservoir sand, water leg (paper)
+  [0.33, 0.34, 0.35],  // shale (dark grey)
+  [0.50, 0.50, 0.49],  // basement
 ];
-const AMBER = [1.0, 0.56, 0.20];
+const CRIMSON = [0.40, 0.013, 0.036];     // #A31F34 after tone mapping
+const CRIMSON_LIT = [0.62, 0.035, 0.075]; // #C8364C, brightest crest points
+const PAPER = [0.88, 0.88, 0.86];         // #F4F4F2
+const v3 = (c, k = 1) => `vec3(${c.map((v) => (v * k).toFixed(3)).join(',')})`;
 const LAYER_DENS = [0.42, 0.22, 1.0, 0.36, 0.55];
 const LAYER_GAIN = [0.5, 0.42, 0.7, 0.42, 0.5];
 
-const HUB_LABELS = ['W-03 · φ 0.24', 'C-117 · k 412 mD', 'N-08 · Sw 0.31', 'W-11 · φ 0.19', 'C-42 · k 286 mD', 'N-21 · p 31.4 MPa'];
 
 const GLSL_GEO = /* glsl */`
   uniform vec2 uHalf;  // block half extents (x, z)
@@ -97,7 +99,7 @@ const GLSL_SPRITE = /* glsl */`
   }
 `;
 
-// shared node motion (nodes, edges, hub rings and HUD labels agree to the pixel)
+// shared node motion (nodes, edges and hub rings agree to the pixel)
 const GLSL_NODE = /* glsl */`
   uniform float uT, uLoose, uDrift;
   vec3 nodePos(vec3 cell, vec3 jit, vec3 tgt, vec3 scat, vec4 meta, float morph, float disp, out float e) {
@@ -170,16 +172,17 @@ function camKeysFor(aspect) {
     : [k[0], k[1] * (1 - 0.25 * p), k[2] + 13 * p, k[3] * (1 - 0.08 * p), k[4] + 0.3 * p]);
 }
 
-const lin = (hex) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; }; // sRGB hex -> linear
 
 export default {
   name: 'Cinematic Reservoir',
-  blurb: 'A lit cut-away anticline trap, shot like a product film. A corner-point grid sweeps out from the crest, its cells become a k-NN network with labelled hubs, and the network streams into the name.',
-  tech: 'Three.js · filmic tone mapping · fake DOF · corner-point grid · k-NN graph · DOM HUD',
+  blurb: 'A lit cut-away anticline trap, shot like a product film. A corner-point grid sweeps out from the crest, its cells become a k-NN network with marked hubs, and the network streams into the name.',
+  tech: 'Three.js · filmic tone mapping · fake DOF · corner-point grid · k-NN graph',
   duration: DURATION,
   nameAt: NAME_AT,
-  nameWeight: 600,
+  nameWeight: 800,
   nameTracking: -0.035,
+  nameUpper: true,
+  nameDot: true,
   phases: [
     { label: 'Reservoir', start: 0, end: 1.8 },
     { label: 'Grid', start: 1.8, end: 3.6 },
@@ -187,12 +190,7 @@ export default {
     { label: 'Converge', start: 5.4, end: NAME_AT },
   ],
   reveal: {
-    gradient: { name: ['#FFFFFF', '#AEB4BD'], yijin: ['#9AA1AB', '#5F6670'] },
-    colors: {
-      sub: 'rgba(235,238,242,0.62)',
-      accent: '#B08A55',
-      rule: 'rgba(235,238,242,0.22)',
-    },
+    colors: { name: '#F4F4F2', yijin: '#8A8B8C', sub: 'rgba(244,244,242,0.72)', accent: '#C8364C', rule: 'rgba(200,54,76,0.75)', glow: 'rgba(244,244,242,0.22)' },
   },
   posterTime: 12.0,
 
@@ -260,7 +258,7 @@ export default {
           float energy = max((base * base) / (size * size), 0.05);
           float light = 0.8 + 0.3 * smoothstep(-1.0, 1.0, (-p.x * 0.10 + p.y * 0.42 + p.z * 0.14));
           vA = uDens * uAlpha * (1.0 + glint) * fogOf(depth) * (1.0 - smoothstep(0.35, 0.9, s)) * ff * energy;
-          vCol = aCol * light + vec3(0.5, 0.75, 0.9) * glint * 0.3;
+          vCol = aCol * light + ${v3(PAPER)} * glint * 0.3;
           gl_PointSize = size;
         }`,
       fragmentShader: `
@@ -331,11 +329,10 @@ export default {
         varying float vA; varying float vBlur; ${GLSL_SPRITE}
         void main() {
           float a = sprite(length(gl_PointCoord - 0.5) * 2.0, vBlur) * vA; if (a < 0.002) discard;
-          gl_FragColor = vec4(vec3(${AMBER.map((v) => (v * 1.6).toFixed(3)).join(',')}) * a, a);
+          gl_FragColor = vec4(${v3(CRIMSON_LIT, 1.1)} * a, a);
         }`,
     });
 
-    const GRID_COL = lin('#8FC3D8');
     const gridMat = new THREE.ShaderMaterial({
       ...additive,
       uniforms: shared({ uSweep: { value: -1 }, uAlpha: { value: 0 } }),
@@ -356,7 +353,7 @@ export default {
       fragmentShader: `
         varying float vA; varying float vBand;
         void main() {
-          vec3 c = vec3(${GRID_COL.map((v) => v.toFixed(3)).join(',')}) * vA * 0.22 + vec3(1.4, 1.6, 1.75) * vBand;
+          vec3 c = ${v3(PAPER)} * vA * 0.22 + ${v3(PAPER, 1.8)} * vBand;
           gl_FragColor = vec4(c, vA * 0.22 + vBand);
         }`,
     });
@@ -381,18 +378,17 @@ export default {
         }`,
       fragmentShader: `
         varying float vA; varying float vBlur; ${GLSL_SPRITE}
-        void main() { float a = sprite(length(gl_PointCoord - 0.5) * 2.0, vBlur) * vA * 0.7; if (a < 0.002) discard; gl_FragColor = vec4(vec3(0.75, 0.88, 0.95) * a, a); }`,
+        void main() { float a = sprite(length(gl_PointCoord - 0.5) * 2.0, vBlur) * vA * 0.7; if (a < 0.002) discard; gl_FragColor = vec4(${v3(PAPER, 0.95)} * a, a); }`,
     });
 
-    const NAME_TOP = lin('#FFFFFF'), NAME_BOT = lin('#AEB4BD');
     const nodeMat = new THREE.ShaderMaterial({
       ...additive,
       uniforms: shared({ uIn: { value: 0 }, uAlpha: { value: 0 }, uNameA: { value: 1 }, uPx: { value: 2.2 }, uNamePx: { value: 3 },
-        uNameY: { value: new THREE.Vector2(1, -1) }, uStreak: { value: 1 } }),
+        uStreak: { value: 1 } }),
       vertexShader: `
         attribute vec3 aCell, aJit, aTgt, aScat; attribute vec4 aMeta; attribute float aRep;
         uniform float uIn, uAlpha, uNameA, uPx, uNamePx, uMorph, uMorphPrev, uDisp, uDispPrev, uStreak, uThin, uSoft;
-        uniform vec2 uNameY, uRes;
+        uniform vec2 uRes;
         varying float vA; varying float vBlur; varying float vSize; varying float vL; varying vec2 vDir; varying vec3 vCol;
         ${GLSL_GEO} ${GLSL_LENS} ${GLSL_NODE}
         void main() {
@@ -428,10 +424,8 @@ export default {
           float rep = aRep > 0.5 ? smoothstep(0.3, 0.85, e) : 1.0;
           float netA = (hub * 1.6 + graph * 0.95 + sand * mix(0.55, 0.2, uThin) + other * 0.45 * (1.0 - uThin)) * uDens;
           vA = uAlpha * rep * smoothstep(0.0, 0.6, a0) * fog * mix(netA, uNameA, e) * energy;
-          // name light: brighter top, cooler bottom (matches the HTML gradient type)
-          float gy = clamp((aTgt.y - uNameY.y) / (uNameY.x - uNameY.y), 0.0, 1.0);
-          vec3 nameCol = mix(vec3(${NAME_BOT.map((v) => v.toFixed(3)).join(',')}), vec3(${NAME_TOP.map((v) => v.toFixed(3)).join(',')}), gy);
-          vCol = mix(vec3(0.78, 0.86, 0.94), nameCol, e);
+          // flat paper type, like the homepage
+          vCol = ${v3(PAPER, 0.98)};
           gl_PointSize = vSize + vL;
         }`,
       fragmentShader: `
@@ -476,7 +470,7 @@ export default {
           float pulse = step(vPulse, 0.045) * exp(-pow((vS - ph) / 0.06, 2.0));
           float grad = 0.35 + 0.65 * abs(vS * 2.0 - 1.0); // brighter at the nodes
           float a = vA * (0.26 * grad + pulse * 0.9);
-          vec3 c = vec3(0.55, 0.72, 0.82) * vA * 0.26 * grad + vec3(1.3, 0.8, 0.35) * vA * pulse * 0.9;
+          vec3 c = ${v3(PAPER, 0.5)} * vA * 0.26 * grad + ${v3(CRIMSON_LIT, 1.2)} * vA * pulse * 0.9;
           gl_FragColor = vec4(c, a);
         }`,
     });
@@ -505,7 +499,7 @@ export default {
           float r = 0.5 * vSize - 1.5;
           float a = (1.0 - smoothstep(0.0, 0.9, abs(d - r))) * vA;
           if (a < 0.002) discard;
-          gl_FragColor = vec4(vec3(0.85, 0.92, 1.0) * a, a);
+          gl_FragColor = vec4(${v3(CRIMSON_LIT)} * a, a);
         }`,
     });
 
@@ -547,13 +541,13 @@ export default {
         void main() {
           vec3 hdr = texture2D(tDiffuse, vUv).rgb * uExposure;
           vec3 col = srgb(aces(hdr));
-          // graphite ground, soft off-axis key light from the upper left (display space, screen-blended)
+          // #0D0E10 ground, soft neutral key light from the upper left (display space, screen-blended)
           vec2 kd = (vUv - vec2(0.18, 0.92)) * vec2(uAspect, 1.0);
           float key = exp(-dot(kd, kd) * 0.9);
-          vec3 ground = vec3(0.043, 0.048, 0.056) + vec3(0.050, 0.054, 0.060) * key;
+          vec3 ground = vec3(0.046, 0.049, 0.056) + vec3(0.026, 0.026, 0.026) * key; // #0D0E10, neutral key
           col = 1.0 - (1.0 - col) * (1.0 - ground);
           vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);
-          col *= 1.0 - 0.42 * smoothstep(0.3, 1.1, length(q * vec2(0.8, 1.0)));
+          col *= 1.0 - 0.6 * smoothstep(0.3, 1.1, length(q * vec2(0.8, 1.0))); // -> #050506 at the edges
           // film grain, strongest in the mid-tones
           float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
           col += (hash(vUv * uRes + uSeed) - 0.5) * uGrain * (0.35 + 0.65 * smoothstep(0.03, 0.3, luma));
@@ -563,49 +557,10 @@ export default {
     });
     composer.addPass(new ShaderPass(gradeMat));
 
-    // ---------- editorial HUD (DOM) ----------
-    let hud = null;
-    const hudEls = {};
-    if (HUD) {
-      hud = document.createElement('div');
-      hud.setAttribute('aria-hidden', 'true');
-      Object.assign(hud.style, {
-        position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '4', fontFamily: MONO_FAMILY,
-        fontSize: '10.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(235,238,242,0.5)', lineHeight: '1.6',
-      });
-      const chapters = ['Reservoir', 'Grid', 'Network'];
-      hud.innerHTML = `
-        <div data-k="tl" style="position:absolute;left:var(--m);top:var(--m)">
-          ${chapters.map((c, i) => `<div data-ch="${i}" style="position:absolute;left:0;top:0;white-space:nowrap"><span style="color:rgba(235,238,242,0.78)">0${i + 1}</span> / 03&nbsp;&nbsp;·&nbsp;&nbsp;${c}</div>`).join('')}
-        </div>
-        <div data-k="bl" style="position:absolute;left:var(--m);bottom:var(--m)">
-          <div data-rd="0" style="position:absolute;left:0;bottom:0;white-space:nowrap">φ <span data-v="phi">0.21</span>&nbsp;&nbsp;·&nbsp;&nbsp;k <span data-v="perm">340</span> mD&nbsp;&nbsp;·&nbsp;&nbsp;Sw <span data-v="sw">0.28</span></div>
-          <div data-rd="1" style="position:absolute;left:0;bottom:0;white-space:nowrap">Corner-point grid&nbsp;&nbsp;·&nbsp;&nbsp;cells <span data-v="cells">0</span> / ${NN.toLocaleString('en-US')}</div>
-          <div data-rd="2" style="position:absolute;left:0;bottom:0;white-space:nowrap">k-NN graph&nbsp;&nbsp;·&nbsp;&nbsp;edges <span data-v="edges">0</span></div>
-        </div>
-        <div data-k="br" style="position:absolute;right:var(--m);bottom:var(--m);text-align:right;white-space:nowrap">
-          35.21° N&nbsp;&nbsp;·&nbsp;&nbsp;97.44° W
-          <div style="position:relative;height:1px;margin-top:9px;background:rgba(235,238,242,0.14)"><div data-k="prog" style="position:absolute;inset:0;background:rgba(235,238,242,0.55);transform-origin:0 50%"></div></div>
-        </div>
-        ${HUB_LABELS.map((s, i) => `<div data-hub="${i}" style="position:absolute;left:0;top:0;white-space:nowrap;font-size:9.5px;letter-spacing:0.12em;color:rgba(235,238,242,0.85);text-shadow:0 0 6px #0b0d10,0 0 2px #0b0d10">${s}</div>`).join('')}`;
-      ctx.container.appendChild(hud);
-      hudEls.tl = hud.querySelector('[data-k="tl"]');
-      hudEls.bl = hud.querySelector('[data-k="bl"]');
-      hudEls.br = hud.querySelector('[data-k="br"]');
-      hudEls.prog = hud.querySelector('[data-k="prog"]');
-      hudEls.ch = [...hud.querySelectorAll('[data-ch]')];
-      hudEls.rd = [...hud.querySelectorAll('[data-rd]')];
-      hudEls.hub = [...hud.querySelectorAll('[data-hub]')];
-      hudEls.v = {};
-      for (const el of hud.querySelectorAll('[data-v]')) hudEls.v[el.dataset.v] = { el, last: null };
-    }
-    const setText = (key, val) => { const r = hudEls.v[key]; if (r.last !== val) { r.last = val; r.el.textContent = val; } };
-
     let G = makeGeo(ctx.width / ctx.height);
     let S = 1;
     let camKeys = camKeysFor(ctx.width / ctx.height);
-    let edgeCount = 0, readOff = 0, narrow = false, vw = ctx.width, vh = ctx.height;
-    const hubData = new Float32Array(N_HUBS * 10); // cell(3) jit(3) seed, unused
+    let edgeCount = 0, readOff = 0, narrow = false;
     const F = { front: new THREE.Vector3(), crest: new THREE.Vector3(), centre: new THREE.Vector3() };
 
     const setGeo = (o, attrs) => {
@@ -618,7 +573,7 @@ export default {
 
     function build(c) {
       const w = c.width, h = c.height, aspect = w / h;
-      vw = w; vh = h; narrow = w < 600;
+      narrow = w < 600;
       const portrait = portraitOf(aspect);
       G = makeGeo(aspect);
       camKeys = camKeysFor(aspect);
@@ -693,8 +648,11 @@ export default {
           let k = LAYER_GAIN[L] * grain;
           if (L === 2 || sheet === 2) {
             const oil = oilOf(x, sheet === 2 ? hz(G, 2, x, z) : y, z);
-            c3 = [lerp(c3[0], AMBER[0], oil), lerp(c3[1], AMBER[1], oil), lerp(c3[2], AMBER[2], oil)];
-            k *= 1 + 0.9 * oil;
+            // paper -> crimson through a dark step, so mixed points never read as pink
+            const cr = [0, 1, 2].map((ch) => lerp(CRIMSON[ch], CRIMSON_LIT[ch], oil * oil));
+            const o = clamp((oil - 0.12) / 0.2);
+            c3 = [0, 1, 2].map((ch) => lerp(c3[ch] * (1 - o), cr[ch], o));
+            k *= 1 + 0.5 * oil;
           }
           if (sheet >= 0) k *= 0.8;
           col[n * 3] = c3[0] * k; col[n * 3 + 1] = c3[1] * k; col[n * 3 + 2] = c3[2] * k;
@@ -720,9 +678,9 @@ export default {
         };
         const front = (u, k) => { const x = -HW + u * W; return [x, hz(G, k, x, HD), HD]; };
         const right = (u, k) => { const z = HD - u * D; return [HW, hz(G, k, HW, z), z]; };
-        const silver = [0.85, 0.89, 0.95], dim = [0.42, 0.45, 0.5];
+        const silver = PAPER, dim = [0.4, 0.4, 0.4];
         for (const k of [1, 2, 3, 4]) {
-          const cl = k === 2 ? [1.6, 0.95, 0.42] : silver.map((v) => v * (k === 3 ? 0.75 : 0.6));
+          const cl = k === 2 ? CRIMSON.map((v) => v * 1.5) : silver.map((v) => v * (k === 3 ? 0.75 : 0.6));
           face(front, k, cl); face(right, k, cl);
         }
         for (const k of [0, 5]) { face(front, k, dim); face(right, k, dim); }
@@ -737,7 +695,7 @@ export default {
             const p = fn(q / Q);
             const ok = hz(G, 2, p[0], p[2]) > OWC && hz(G, 3, p[0], p[2]) < OWC;
             const cur = ok ? [p[0], OWC, p[2]] : null;
-            if (prev && cur) segs.push([...prev, 0.7, 0.45, 0.2, 1], [...cur, 0.7, 0.45, 0.2, 1]);
+            if (prev && cur) segs.push([...prev, ...CRIMSON, 1], [...cur, ...CRIMSON, 1]);
             prev = cur;
           }
         };
@@ -843,9 +801,6 @@ export default {
         const v = new THREE.Vector3();
         const tg = new Float32Array(NR * 3);
         for (let q = 0; q < NR; q++) { toPlane(smp[q * 2], smp[q * 2 + 1], v); tg[q * 3] = v.x / S; tg[q * 3 + 1] = v.y / S; }
-        toPlane(0, L.baseline - 0.78 * L.fontSize, v); const yTop = v.y / S;
-        toPlane(0, L.baseline + 0.06 * L.fontSize, v); const yBot = v.y / S;
-        nodeMat.uniforms.uNameY.value.set(yTop, yBot);
         // coherent assignment of NR particles (each node NAME_REPLICAS times)
         const owner = (q) => q % NN;
         const ni = Array.from({ length: NR }, (_, q) => q).sort((a, b) => net[owner(a) * 3] - net[owner(b) * 3]);
@@ -875,13 +830,12 @@ export default {
         }
         setGeo(nodes, { position: [new Float32Array(NR * 3), 3], aCell: [pC, 3], aJit: [pJ, 3], aTgt: [pT, 3], aScat: [pS, 3], aMeta: [pM, 4], aRep: [pR, 1] });
 
-        // hub rings + CPU copies for the HUD labels
+        // hub ring markers
         {
           const hc = new Float32Array(N_HUBS * 3), hj = new Float32Array(N_HUBS * 3), ht = new Float32Array(N_HUBS * 3), hm = new Float32Array(N_HUBS * 4);
           hubs.forEach((hq, i) => {
             for (let c3 = 0; c3 < 3; c3++) { hc[i * 3 + c3] = cellP[hq * 3 + c3]; hj[i * 3 + c3] = jit[hq * 3 + c3]; ht[i * 3 + c3] = nodeTgt[hq * 3 + c3]; }
             hm.set([meta[hq * 4], nodeOrd[hq], meta[hq * 4 + 2], meta[hq * 4 + 3]], i * 4);
-            hubData.set([cellP[hq * 3], cellP[hq * 3 + 1], cellP[hq * 3 + 2], jit[hq * 3], jit[hq * 3 + 1], jit[hq * 3 + 2], meta[hq * 4], meta[hq * 4 + 2]], i * 10);
           });
           setGeo(rings, { position: [new Float32Array(N_HUBS * 3), 3], aCell: [hc, 3], aJit: [hj, 3], aTgt: [ht, 3], aMeta: [hm, 4] });
         }
@@ -975,13 +929,6 @@ export default {
       flowMat.uniforms.uPx.value = lerp(1.5, 1.9, S);
       nodeMat.uniforms.uPx.value = lerp(2.0, 2.6, S);
 
-      if (hud) {
-        hud.style.setProperty('--m', narrow ? '20px' : '32px');
-        hudEls.bl.style.display = narrow ? 'none' : '';
-        hudEls.br.style.display = narrow ? 'none' : '';
-        for (const el of hudEls.hub) el.style.display = narrow ? 'none' : '';
-      }
-
       renderer.setSize(w, h, false);
       composer.setSize(w, h);
       if (bloom) bloom.resolution.set(w, h);
@@ -1030,49 +977,6 @@ export default {
         ? lerp(lerp(14, 11, ramp(t, 1.8, 3.0)), 16, ramp(t, 3.4, 4.4)) * (1 - 0.15 * ramp(t, 5.4, NAME_AT))
         : lerp(12, 14, kb);
       U.uAperture.value = ap * C.ap * dpr;
-    }
-
-    // HUD label projection (mirrors the GLSL nodePos for the network phase)
-    function hubScreen(i, t, out) {
-      const o = i * 10, seed = hubData[o + 6], L = U.uLoose.value;
-      out.set(
-        hubData[o] + hubData[o + 3] * L + Math.sin(t * 0.61 + seed * 31) * 0.06 * L,
-        hubData[o + 1] + hubData[o + 4] * L + Math.sin(t * 0.47 + seed * 17) * 0.06 * L,
-        hubData[o + 2] + hubData[o + 5] * L + Math.cos(t * 0.53 + seed * 23) * 0.06 * L,
-      ).multiplyScalar(S).project(camera);
-      out.x = (out.x * 0.5 + 0.5) * vw; out.y = (-out.y * 0.5 + 0.5) * vh;
-      return out;
-    }
-
-    function updateHud(t) {
-      if (!hud) return;
-      const show = t < NAME_AT ? 1 - ramp(t, NAME_AT - 0.5, NAME_AT - 0.1) : ramp(t, rebuild0, T.duration);
-      hud.style.opacity = show.toFixed(3);
-      if (show <= 0) return;
-      // chapter (and readout) crossfade; the loop's last window belongs to chapter 1
-      const tc = t < NAME_AT ? t : 0;
-      const w0 = 1 - ramp(tc, 1.65, 1.95), w1 = Math.min(ramp(tc, 1.75, 2.05), 1 - ramp(tc, 3.45, 3.75)), w2 = ramp(tc, 3.55, 3.85);
-      const ws = [w0, w1, w2];
-      for (let i = 0; i < 3; i++) {
-        hudEls.ch[i].style.opacity = ws[i].toFixed(3);
-        hudEls.ch[i].style.transform = `translateY(${((1 - ws[i]) * (tc < 1.9 + i * 1.8 ? 4 : -4)).toFixed(2)}px)`;
-        hudEls.rd[i].style.opacity = ws[i].toFixed(3);
-      }
-      hudEls.prog.style.transform = `scaleX(${(t / T.duration).toFixed(4)})`;
-      if (narrow) return;
-      setText('phi', (0.21 + 0.012 * Math.sin(t * 1.7)).toFixed(3));
-      setText('perm', String(Math.round(340 + 14 * Math.sin(t * 1.1 + 0.6))));
-      setText('sw', (0.28 + 0.01 * Math.sin(t * 1.3 + 2.0)).toFixed(3));
-      setText('cells', Math.round(NN * clamp(gridMat.uniforms.uSweep.value / 1.05)).toLocaleString('en-US'));
-      setText('edges', Math.round(edgeCount * ramp(t, 3.45, 5.0)).toLocaleString('en-US'));
-      // hub labels
-      const la = Math.min(ramp(t, 3.9, 4.4), 1 - ramp(t, 5.15, 5.45));
-      for (let i = 0; i < N_HUBS; i++) {
-        const el = hudEls.hub[i];
-        const a = la * clamp(1 - Math.abs(i / (N_HUBS - 1) - 0.5) * 0.4);
-        el.style.opacity = a.toFixed(3);
-        if (a > 0) { hubScreen(i, t, tmp); el.style.transform = `translate(${(tmp.x + 11).toFixed(1)}px, ${(tmp.y - 18).toFixed(1)}px)`; }
-      }
     }
 
     return {
@@ -1138,7 +1042,6 @@ export default {
         nodeMat.uniforms.uAlpha.value = lerp(1, readLevel, easeInOutSine(fadeName));
 
         gradeMat.uniforms.uSeed.value = Math.floor(t * 24) * 17.31;
-        updateHud(t);
         composer.render();
       },
       resize(c) {
@@ -1153,7 +1056,6 @@ export default {
         rt.dispose();
         renderer.dispose();
         renderer.domElement.remove();
-        if (hud) hud.remove();
       },
     };
   },
