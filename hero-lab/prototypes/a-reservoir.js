@@ -64,6 +64,11 @@ const GLSL_GEO = /* glsl */`
   uniform vec3 uCamL;  // camera position in block space
   uniform float uDens; // brightness compensation when the block is drawn small (narrow screens)
   uniform float uSideA; // right face / back edges (hidden in the face-on read echo)
+  uniform float uFeather; // read-phase echo: elliptical falloff so it dissolves into the ground
+  float featherOf(vec3 p) {
+    vec2 q = vec2(p.x / (uHalf.x * 0.95), (p.y - 0.35) / 1.45);
+    return mix(1.0, 1.0 - smoothstep(0.25, 1.0, length(q)), uFeather);
+  }
   float sideOf(vec3 p) { return (abs(p.x - uHalf.x) < 1e-3 || abs(p.x + uHalf.x) < 1e-3 || abs(p.z + uHalf.y) < 1e-3) ? uSideA : 1.0; }
   // fade geometry lying on a vertical face of the block when that face is seen edge-on
   float faceFade(vec3 p) {
@@ -217,7 +222,7 @@ export default {
       uFocus: { value: 22 }, uAperture: { value: 20 }, uCocMax: { value: C.coc * dpr },
       uT: { value: 0 }, uDpr: { value: dpr }, uCamZ: { value: CAM_Z },
       uCamL: { value: new THREE.Vector3(0, 0, CAM_Z) },
-      uDens: { value: 1 }, uSideA: { value: 1 },
+      uDens: { value: 1 }, uSideA: { value: 1 }, uFeather: { value: 0 }, uThin: { value: 0 }, uSoft: { value: 0 },
       uLoose: { value: 0 }, uDrift: { value: 0 },
       uMorph: { value: 0 }, uMorphPrev: { value: 0 }, uDisp: { value: 0 }, uDispPrev: { value: 0 },
       uRes: { value: new THREE.Vector2(ctx.width * dpr, ctx.height * dpr) },
@@ -240,7 +245,7 @@ export default {
           float xn = (p.x + uHalf.x) / (2.0 * uHalf.x);
           float dg = uGlint - xn;
           float glint = exp(-dg * dg / 0.006) * uGlintA;
-          float ff = faceFade(p) * sideOf(p);
+          float ff = faceFade(p) * sideOf(p) * featherOf(p);
           // the continuum slides into its grid cell and falls away, outward from the crest
           float s = clamp(uSnap * 1.5 - radial(p) * 0.4 - aSeed.x * 0.1, 0.0, 1.0);
           float es = s * s * (3.0 - 2.0 * s);
@@ -278,7 +283,7 @@ export default {
           gl_Position = projectionMatrix * mv;
           float depth = -mv.z;
           float s = clamp(uSnap * 1.5 - radial(p) * 0.4, 0.0, 1.0);
-          vA = uDens * uAlpha * faceFade(p) * sideOf(p) * fogOf(depth) * (1.0 - smoothstep(0.0, 0.6, s)) / (1.0 + cocOf(depth) * 0.12);
+          vA = uDens * uAlpha * faceFade(p) * sideOf(p) * featherOf(p) * fogOf(depth) * (1.0 - smoothstep(0.0, 0.6, s)) / (1.0 + cocOf(depth) * 0.12);
           vCol = aH.rgb; vDash = aH.a; vU = p.x * 3.0 + p.z * 3.0;
         }`,
       fragmentShader: `
@@ -319,7 +324,7 @@ export default {
           float size = base + coc;
           vBlur = coc / size;
           float life = sin(3.14159 * clamp(u, 0.0, 1.0));
-          vA = uDens * uAlpha * oil * life * (1.0 - aF.w * 0.38) * fogOf(depth) * max((base * base) / (size * size), 0.05);
+          vA = uDens * uAlpha * featherOf(p) * oil * life * (1.0 - aF.w * 0.38) * fogOf(depth) * max((base * base) / (size * size), 0.05);
           gl_PointSize = size;
         }`,
       fragmentShader: `
@@ -386,7 +391,7 @@ export default {
         uNameY: { value: new THREE.Vector2(1, -1) }, uStreak: { value: 1 } }),
       vertexShader: `
         attribute vec3 aCell, aJit, aTgt, aScat; attribute vec4 aMeta; attribute float aRep;
-        uniform float uIn, uAlpha, uNameA, uPx, uNamePx, uMorph, uMorphPrev, uDisp, uDispPrev, uStreak;
+        uniform float uIn, uAlpha, uNameA, uPx, uNamePx, uMorph, uMorphPrev, uDisp, uDispPrev, uStreak, uThin, uSoft;
         uniform vec2 uNameY, uRes;
         varying float vA; varying float vBlur; varying float vSize; varying float vL; varying vec2 vDir; varying vec3 vCol;
         ${GLSL_GEO} ${GLSL_LENS} ${GLSL_NODE}
@@ -405,17 +410,23 @@ export default {
           vDir = vl > 1e-3 ? v / vl : vec2(1.0, 0.0);
           vL = min(vl * uStreak, 34.0 * uDpr);
           float depth = -mv.z;
-          float hub = step(1.5, aMeta.w);
-          float base = mix(uPx * (hub > 0.5 ? 1.7 : (0.85 + 0.3 * aMeta.w)), uNamePx, e) * uDpr * (uCamZ / depth);
+          float hub = step(1.75, aMeta.w);
+          float graph = step(1.25, aMeta.w) * (1.0 - hub);
+          float sand = step(0.95, aMeta.w) * (1.0 - graph - hub);
+          float other = 1.0 - hub - graph - sand;
+          // last beat before the HTML: dots grow soft and overlap toward smooth type
+          float soft = uSoft * e;
+          float netPx = uPx * (hub * 1.8 + graph * 1.15 + (sand + other) * 0.8);
+          float base = mix(netPx, uNamePx, e) * uDpr * (uCamZ / depth) * (1.0 + 0.6 * soft);
           // in flight the dot reads as a thin streak, not a fat bokeh capsule
           float coc = cocOf(depth) / (1.0 + vL * 0.25);
           vSize = base + coc;
-          vBlur = coc / vSize;
-          float energy = max((base * base) / (vSize * vSize), 0.05) * (vSize / (vSize + vL * 0.6));
+          vBlur = max(coc / vSize, 0.8 * soft);
+          float energy = max((base * base) / (vSize * vSize), 0.05) * (vSize / (vSize + vL * 0.6)) / pow(1.0 + 0.6 * soft, 1.7);
           float fog = mix(fogOf(depth), 1.0, e);
           // replicas ride hidden inside their node and peel off into the glyphs
           float rep = aRep > 0.5 ? smoothstep(0.3, 0.85, e) : 1.0;
-          float netA = (0.35 + 0.55 * min(aMeta.w, 1.0) + hub * 0.6) * uDens;
+          float netA = (hub * 1.6 + graph * 0.95 + sand * mix(0.55, 0.2, uThin) + other * 0.45 * (1.0 - uThin)) * uDens;
           vA = uAlpha * rep * smoothstep(0.0, 0.6, a0) * fog * mix(netA, uNameA, e) * energy;
           // name light: brighter top, cooler bottom (matches the HTML gradient type)
           float gy = clamp((aTgt.y - uNameY.y) / (uNameY.x - uNameY.y), 0.0, 1.0);
@@ -454,7 +465,7 @@ export default {
           gl_Position = projectionMatrix * mv;
           float depth = -mv.z;
           float arrive = max(eA, eB);
-          vA = uDens * uAlpha * step(0.001, g) * (1.0 - smoothstep(0.0, 0.35, arrive)) * fogOf(depth) / (1.0 + cocOf(depth) * 0.25) * (aE.w > 0.5 ? 0.5 : 1.0);
+          vA = uDens * uAlpha * step(0.001, g) * (1.0 - smoothstep(0.0, 0.35, arrive)) * fogOf(depth) / (1.0 + cocOf(depth) * 0.25) * (aE.w > 0.5 ? 0.7 : 1.0);
           vS = aE.x * g;
           vPulse = aE.z;
         }`,
@@ -464,8 +475,8 @@ export default {
           float ph = fract(uT * 0.32 + vPulse * 7.0);
           float pulse = step(vPulse, 0.045) * exp(-pow((vS - ph) / 0.06, 2.0));
           float grad = 0.35 + 0.65 * abs(vS * 2.0 - 1.0); // brighter at the nodes
-          float a = vA * (0.12 * grad + pulse * 0.9);
-          vec3 c = vec3(0.55, 0.72, 0.82) * vA * 0.12 * grad + vec3(1.3, 0.8, 0.35) * vA * pulse * 0.9;
+          float a = vA * (0.26 * grad + pulse * 0.9);
+          vec3 c = vec3(0.55, 0.72, 0.82) * vA * 0.26 * grad + vec3(1.3, 0.8, 0.35) * vA * pulse * 0.9;
           gl_FragColor = vec4(c, a);
         }`,
     });
@@ -513,7 +524,7 @@ export default {
     const mats = [strataMat, hairMat, flowMat, gridMat, tickMat, nodeMat, edgeMat, ringMat];
 
     // ---------- post: HDR (MSAA) -> highlight bloom -> filmic grade ----------
-    const rt = new THREE.WebGLRenderTarget(ctx.width * dpr, ctx.height * dpr, { type: THREE.HalfFloatType, samples: high ? 4 : 0 });
+    const rt = new THREE.WebGLRenderTarget(ctx.width * dpr, ctx.height * dpr, { type: THREE.HalfFloatType, samples: high ? 4 : 2 });
     const composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
     let bloom = null;
@@ -801,7 +812,7 @@ export default {
           for (let a = 0; a < 3; a++) net[n * 3 + a] = cellP[n * 3 + a] + jit[n * 3 + a];
           meta[n * 4] = r();
           meta[n * 4 + 2] = Math.min(1, Math.hypot(xc / HW, zc / HD) / Math.SQRT2);
-          meta[n * 4 + 3] = k === 2 || k === 3 ? 1 : 0.2 + r() * 0.35;
+          meta[n * 4 + 3] = k === 2 || k === 3 ? (r() < 0.5 ? 1.5 : 1) : 0.2 + r() * 0.35;
           n++;
         }
         // hubs: farthest-point picks among sand-body nodes in the inner 80% of the block
@@ -875,13 +886,15 @@ export default {
           setGeo(rings, { position: [new Float32Array(N_HUBS * 3), 3], aCell: [hc, 3], aJit: [hj, 3], aTgt: [ht, 3], aMeta: [hm, 4] });
         }
 
-        // k-NN (k = 3) on the loosened positions, plus a few long links
+        // k-NN (k = 3) among the sparse sand-body graph nodes (fewer, longer edges), plus hub links
+        const gnodes = [];
+        for (let q = 0; q < NN; q++) if (meta[q * 4 + 3] >= 1.25) gnodes.push(q);
         const K = 3, key = new Set(), E = [];
         const bd = new Float32Array(K), bi = new Int32Array(K);
-        for (let a = 0; a < NN; a++) {
+        for (const a of gnodes) {
           bd.fill(1e9); bi.fill(-1);
           const ax = net[a * 3], ay = net[a * 3 + 1], az = net[a * 3 + 2];
-          for (let b = 0; b < NN; b++) {
+          for (const b of gnodes) {
             if (b === a) continue;
             const dx = net[b * 3] - ax, dy = (net[b * 3 + 1] - ay) * 1.6, dz = net[b * 3 + 2] - az;
             const d2 = dx * dx + dy * dy + dz * dz;
@@ -901,11 +914,11 @@ export default {
         const cs = Math.max(cw, cd);
         for (const hq of hubs) {
           let made = 0;
-          for (let tries = 0; tries < 400 && made < 7; tries++) {
-            const b = Math.floor(r() * NN);
+          for (let tries = 0; tries < 400 && made < 6; tries++) {
+            const b = gnodes[Math.floor(r() * gnodes.length)];
             const dx = net[b * 3] - net[hq * 3], dy = net[b * 3 + 1] - net[hq * 3 + 1], dz = net[b * 3 + 2] - net[hq * 3 + 2];
             const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (d > cs * 1.5 && d < cs * 4.5) { E.push([hq, b, 1]); made++; }
+            if (d > cs * 2.0 && d < cs * 5.0) { E.push([hq, b, 1]); made++; }
           }
         }
         const NV = E.length * 2;
@@ -1094,7 +1107,8 @@ export default {
         SM.uAlpha.value = strataA; SM.uSnap.value = snap;
         const kRet = ramp(t, rebuild0, T.duration);
         hairMat.uniforms.uAlpha.value = t < T.split[1] ? strataA : t < rebuild0 ? strataA * 0.3 : strataA * lerp(0.3, 1, kRet * kRet);
-        U.uSideA.value = t < T.split[1] ? 1 : t < rebuild0 ? 0 : kRet * kRet; hairMat.uniforms.uSnap.value = snap;
+        U.uSideA.value = t < T.split[1] ? 1 : t < rebuild0 ? 0 : kRet * kRet;
+        U.uFeather.value = t < T.split[1] ? 0 : t < rebuild0 ? 1 : 1 - easeInOutSine(kRet); hairMat.uniforms.uSnap.value = snap;
         hair.position.y = strata.position.y;
 
         flow.position.y = strata.position.y;
@@ -1114,6 +1128,8 @@ export default {
         const dispAt = (x) => easeInOutCubic(ramp(x, NAME_AT + 0.3, T.split[0] + 0.4)) + 0.08 * Math.max(0, x - T.split[0]);
         U.uMorph.value = morphAt(t); U.uMorphPrev.value = morphAt(t - 0.045);
         U.uDisp.value = dispAt(t); U.uDispPrev.value = dispAt(t - 0.045);
+        U.uThin.value = easeInOutSine(ramp(t, 3.5, 4.4));
+        U.uSoft.value = easeInOutSine(ramp(t, T.htmlIn[0] - 0.3, T.htmlIn[0] + 0.05));
         edgeMat.uniforms.uGrow.value = ramp(t, 3.45, 5.0);
         edgeMat.uniforms.uAlpha.value = ramp(t, 3.45, 3.65);
         ringMat.uniforms.uAlpha.value = Math.min(ramp(t, 3.8, 4.3), 1 - ramp(t, 5.1, 5.45)) * 0.8;
